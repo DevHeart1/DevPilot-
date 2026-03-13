@@ -1,5 +1,5 @@
 import { db } from '../db';
-import { Task, AgentMessage, TaskArtifact, Memory, AgentRun } from '../../types';
+import { Task, AgentMessage, TaskArtifact, Memory, AgentRun, AgentEvent, RunStep, TaskMemoryHit } from '../../types';
 
 export const TASK_ID_ACTIVE = crypto.randomUUID();
 
@@ -168,6 +168,26 @@ export const seedMemories: Memory[] = [
     confidence: 0.88,
     createdAt: Date.now() - 1000 * 60 * 60 * 24 * 14,
     updatedAt: Date.now() - 1000 * 60 * 60 * 24 * 14,
+  },
+  {
+    id: crypto.randomUUID(),
+    scope: "ui_pattern",
+    title: "Horizontal overflow in card rails",
+    content: "Horizontal overflow in card rails is often resolved with overflow-x-auto and scrollbar hiding instead of flex-wrap.",
+    tags: ["ui", "layout", "mobile", "overflow"],
+    confidence: 0.92,
+    createdAt: Date.now() - 1000 * 60 * 60 * 24 * 3,
+    updatedAt: Date.now() - 1000 * 60 * 60 * 24 * 3,
+  },
+  {
+    id: crypto.randomUUID(),
+    scope: "bug_fix",
+    title: "Small viewport layout regressions",
+    content: "Small viewport layout regressions commonly happen when flex-wrap combines with fixed card min-width.",
+    tags: ["css", "flexbox", "responsive"],
+    confidence: 0.85,
+    createdAt: Date.now() - 1000 * 60 * 60 * 24 * 2,
+    updatedAt: Date.now() - 1000 * 60 * 60 * 24 * 2,
   }
 ];
 
@@ -176,11 +196,20 @@ export const seedAgentRuns: AgentRun[] = [
     id: crypto.randomUUID(),
     taskId: TASK_ID_ACTIVE,
     status: "running",
-    currentStep: "Analyzing auth.ts...",
+    currentStep: "Initializing...",
     startedAt: Date.now() - 1000 * 60 * 5,
     updatedAt: Date.now() - 1000 * 60 * 3,
+    progress: 0,
+    totalSteps: 6,
+    completedSteps: 0,
+    mode: "mock"
   }
 ];
+
+
+export const seedAgentEvents: AgentEvent[] = [];
+export const seedRunSteps: RunStep[] = [];
+export const seedTaskMemoryHits: TaskMemoryHit[] = [];
 
 export async function initializeDb() {
   const count = await db.tasks.count();
@@ -191,6 +220,9 @@ export async function initializeDb() {
     await db.taskArtifacts.bulkAdd(seedArtifacts);
     await db.memories.bulkAdd(seedMemories);
     await db.agentRuns.bulkAdd(seedAgentRuns);
+    await db.agentEvents.bulkAdd(seedAgentEvents);
+    await db.runSteps.bulkAdd(seedRunSteps);
+    await db.taskMemoryHits.bulkAdd(seedTaskMemoryHits);
     console.log("Database seeded successfully.");
   }
 }

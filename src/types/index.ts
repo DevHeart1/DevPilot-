@@ -46,4 +46,51 @@ export interface AgentRun {
   currentStep: string;
   startedAt: number;
   updatedAt: number;
+  progress: number;
+  totalSteps: number;
+  completedSteps: number;
+  mode: "mock" | "review" | "auto_fix";
+  lastError?: string;
+}
+
+export interface AgentEvent {
+  id: string;
+  taskId: string;
+  source: "system" | "ui_agent" | "code_agent" | "memory_engine" | "orchestrator";
+  type:
+    | "RUN_STARTED"
+    | "STEP_STARTED"
+    | "STEP_COMPLETED"
+    | "ARTIFACT_UPDATED"
+    | "MEMORY_RETRIEVED"
+    | "MEMORY_STORED"
+    | "STATUS_CHANGED"
+    | "RUN_COMPLETED"
+    | "RUN_FAILED";
+  title: string;
+  description: string;
+  metadata: string;
+  timestamp: number;
+}
+
+export interface RunStep {
+  id: string;
+  runId: string;
+  taskId: string;
+  order: number;
+  key: string;
+  label: string;
+  status: "pending" | "running" | "completed" | "failed";
+  detail: string;
+  startedAt?: number;
+  completedAt?: number;
+}
+
+export interface TaskMemoryHit {
+  id: string;
+  taskId: string;
+  memoryId: string;
+  score: number;
+  reason: string;
+  createdAt: number;
 }
