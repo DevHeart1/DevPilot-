@@ -1,6 +1,8 @@
 import { startMockOrchestrator } from "./lib/orchestrator";
 import { useLiveQuery } from "dexie-react-hooks";
 import { taskService } from "./lib/services";
+import { runService } from "./lib/services/run.service";
+import { memoryService } from "./lib/services/memory.service";
 import { initializeDb } from "./lib/seeds";
 import { Task } from "./types";
 /**
@@ -8,7 +10,7 @@ import { Task } from "./types";
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Documentation } from './pages/Documentation';
 import { Changelog } from './pages/Changelog';
 import { Settings } from './pages/Settings';
@@ -270,6 +272,8 @@ const TaskDetail = ({ taskId, onBack }: { taskId: string, onBack: () => void }) 
   const messages = useLiveQuery(() => taskService.getMessagesByTaskId(taskId), [taskId]);
   const run = useLiveQuery(() => taskService.getActiveAgentRun(taskId), [taskId]);
   const currentArtifact = useLiveQuery(() => taskService.getArtifactsByTaskIdAndType(taskId, codeTab), [taskId, codeTab]);
+  const memoryHits = useLiveQuery(() => memoryService.getTaskMemoryHits(taskId), [taskId]);
+  const runSteps = useLiveQuery(() => run ? runService.getRunStepsByRunId(run.id) : [], [run?.id]);
 
   useEffect(() => {
     if (task && task.status === 'running') {
@@ -285,9 +289,60 @@ const TaskDetail = ({ taskId, onBack }: { taskId: string, onBack: () => void }) 
       kind: 'success',
       timestamp: Date.now()
     });
+
+    await runService.createAgentEvent({
+      taskId,
+      source: "ui_agent",
+      type: "STATUS_CHANGED",
+      title: "Task Approved",
+      description: "User approved the generated patch.",
+      metadata: JSON.stringify({ action: "approve" }),
+      timestamp: Date.now()
+    });
+
     await taskService.updateTaskStatus(taskId, 'merged');
+
+    // Requirement 9: Update artifacts with final completion content
+    if (task) {
+      // Mock final completion content
+      const diffContent = `--- a/src/components/MomentsGrid.tsx\n+++ b/src/components/MomentsGrid.tsx\n@@ -45,7 +45,7 @@\n-      <div className="card-header overflow-hidden">\n+      <div className="card-header overflow-hidden w-full overflow-x-auto whitespace-nowrap">\n         <div className="title text-lg font-bold">Moments</div>\n         <div className="actions flex gap-2">`;
+
+      const logContent = `[SUCCESS] Build completed successfully.\n[INFO] Tests passed: 42/42\n[INFO] Coverage: 95.5%\n[SUCCESS] Deployment artifact generated.`;
+
+      const terminalContent = `> npm run build\n\n> vite build\nvite v6.4.1 building for production...\n✓ 45 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/index.html                   0.83 kB │ gzip:   0.44 kB\n✓ built in 3.77s`;
+
+      await taskService.updateTaskArtifact(taskId, 'diff', diffContent);
+      await taskService.updateTaskArtifact(taskId, 'log', logContent);
+      await taskService.updateTaskArtifact(taskId, 'terminal', terminalContent);
+    }
+
     if (run) {
-      await taskService.updateAgentRunStep(run.id, 'Completed', 'completed');
+      await runService.updateAgentRunProgress(run.id, run.totalSteps, "Completed", "completed");
+      if (runSteps) {
+         for (const step of runSteps) {
+            if (step.status === 'running' || step.status === 'pending') {
+               await runService.updateRunStepStatus(step.id, 'completed', "Approved");
+            }
+         }
+      }
+      await runService.createAgentEvent({
+        taskId,
+        source: "orchestrator",
+        type: "RUN_COMPLETED",
+        title: "Workflow Completed",
+        description: "Task workflow merged and closed.",
+        metadata: "{}",
+        timestamp: Date.now()
+      });
+      await memoryService.storeMemoryRecord({
+        scope: "bug_fix",
+        title: `Fix pattern for ${task?.title || taskId}`,
+        content: "Successfully resolved UI overflow using horizontal scrolling container approach.",
+        tags: ["ui", "layout", "mobile", "approved"],
+        confidence: 1.0,
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+      });
     }
   };
 
@@ -318,6 +373,15 @@ const TaskDetail = ({ taskId, onBack }: { taskId: string, onBack: () => void }) 
             ) : null}
             {task.status}
           </div>
+          {run && run.totalSteps > 0 && (
+            <>
+              <div className="h-4 w-px bg-border-dark mx-2"></div>
+              <div className="flex items-center gap-1.5 px-2 py-0.5 rounded text-slate-400 border border-border-dark text-[10px] font-bold tracking-wider">
+                <span>{run.completedSteps}/{run.totalSteps} STEPS</span>
+                {run.progress > 0 && <span className="text-primary">{run.progress}%</span>}
+              </div>
+            </>
+          )}
           <div className="h-4 w-px bg-border-dark mx-2"></div>
           <div className="flex items-center gap-3 text-xs font-mono text-slate-500">
             <div className="flex items-center gap-1">
@@ -386,6 +450,21 @@ const TaskDetail = ({ taskId, onBack }: { taskId: string, onBack: () => void }) 
                   <div className="flex items-center gap-3 py-2 px-1">
                     <span className="material-symbols-outlined text-primary animate-pulse">sync</span>
                     <span className="text-xs text-slate-400">{run.currentStep}</span>
+                  </div>
+                )}
+
+                {memoryHits && memoryHits.length > 0 && (
+                  <div className="pt-4 border-t border-border-dark space-y-3">
+                    <h3 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Recalled Memories</h3>
+                    {memoryHits.map(hit => (
+                      <div key={hit.id} className="bg-surface-dark/50 border border-border-dark rounded-lg p-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-300">{hit.memory.title}</span>
+                          <span className="text-[10px] font-mono text-primary/70">{Math.round(hit.score * 100)}% Match</span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 leading-relaxed">{hit.reason}</p>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
@@ -590,7 +669,6 @@ const TaskDetail = ({ taskId, onBack }: { taskId: string, onBack: () => void }) 
   );
 };
 
-import { useEffect } from 'react';
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState('dashboard');
