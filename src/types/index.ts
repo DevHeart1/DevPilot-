@@ -64,6 +64,7 @@ export interface AgentRun {
   completedSteps: number;
   mode: "mock" | "review" | "auto_fix";
   lastError?: string;
+  phase?: "inspection" | "code_fix" | "verification";
 }
 
 export interface AgentEvent {
@@ -97,6 +98,7 @@ export interface RunStep {
   detail: string;
   startedAt?: number;
   completedAt?: number;
+  phase?: "inspection" | "code_fix" | "verification";
 }
 
 export interface TaskMemoryHit {
