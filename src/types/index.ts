@@ -36,7 +36,7 @@ export interface AgentMessage {
 export interface TaskArtifact {
   id: string;
   taskId: string;
-  type: "diff" | "log" | "terminal" | "vision_analysis" | "screenshot";
+  type: "diff" | "log" | "terminal" | "vision_analysis" | "screenshot" | "after_screenshot" | "before_screenshot" | "after_logs" | "before_logs" | "before_analysis" | "after_analysis";
   content: string;
   timestamp: number;
 }
@@ -158,4 +158,27 @@ export interface NormalizedFixRecommendation {
   tags: string[];
   confidence: number;
   sourceArtifactIds: string[];
+}
+
+export interface VerificationResult {
+  id: string;
+  taskId: string;
+  proposalId: string;
+  status: "passed" | "failed" | "regression_detected" | "inconclusive";
+  summary: string;
+  explanation: string;
+  confidence: number;
+  issueResolved: boolean;
+  regressionDetected: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface VerificationEvidence {
+  id: string;
+  verificationResultId: string;
+  taskId: string;
+  type: "before_screenshot" | "after_screenshot" | "before_logs" | "after_logs" | "before_analysis" | "after_analysis";
+  artifactId: string;
+  createdAt: number;
 }

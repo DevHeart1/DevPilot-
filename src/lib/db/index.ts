@@ -1,5 +1,5 @@
 import Dexie, { Table } from 'dexie';
-import { Task, AgentMessage, TaskArtifact, Memory, AgentRun, AgentEvent, RunStep, TaskMemoryHit, PatchProposal, PatchFile, VerificationPlan } from '../../types';
+import { Task, AgentMessage, TaskArtifact, Memory, AgentRun, AgentEvent, RunStep, TaskMemoryHit, PatchProposal, PatchFile, VerificationPlan, VerificationResult, VerificationEvidence } from '../../types';
 
 export class DevPilotDB extends Dexie {
   tasks!: Table<Task>;
@@ -8,11 +8,13 @@ export class DevPilotDB extends Dexie {
   memories!: Table<Memory>;
   agentRuns!: Table<AgentRun>;
   agentEvents!: Table<AgentEvent>;
-    runSteps!: Table<RunStep>;
+  runSteps!: Table<RunStep>;
   taskMemoryHits!: Table<TaskMemoryHit>;
   patchProposals!: Table<PatchProposal>;
   patchFiles!: Table<PatchFile>;
   verificationPlans!: Table<VerificationPlan>;
+  verificationResults!: Table<VerificationResult>;
+  verificationEvidences!: Table<VerificationEvidence>;
 
   constructor() {
     super('DevPilotDB');
@@ -41,6 +43,7 @@ export class DevPilotDB extends Dexie {
         run.mode = run.mode ?? 'mock';
       });
     });
+
     this.version(3).stores({
       tasks: 'id, category, status, createdAt',
       agentMessages: 'id, taskId, timestamp',
@@ -55,6 +58,7 @@ export class DevPilotDB extends Dexie {
         task.inspectionStatus = task.inspectionStatus || "idle";
       });
     });
+
     this.version(4).stores({
       tasks: 'id, category, status, createdAt',
       agentMessages: 'id, taskId, timestamp',
@@ -71,6 +75,22 @@ export class DevPilotDB extends Dexie {
       return tx.table('tasks').toCollection().modify(task => {
         task.codeFixStatus = task.codeFixStatus || "idle";
       });
+    });
+
+    this.version(5).stores({
+      tasks: 'id, category, status, createdAt',
+      agentMessages: 'id, taskId, timestamp',
+      taskArtifacts: 'id, [taskId+type]',
+      memories: 'id, scope, createdAt',
+      agentRuns: 'id, taskId, status',
+      agentEvents: 'id, taskId, timestamp',
+      runSteps: 'id, runId, taskId, order',
+      taskMemoryHits: 'id, taskId, memoryId',
+      patchProposals: 'id, taskId, status',
+      patchFiles: 'id, proposalId, taskId',
+      verificationPlans: 'id, taskId, proposalId',
+      verificationResults: 'id, taskId, proposalId, status',
+      verificationEvidences: 'id, verificationResultId, taskId, type'
     });
   }
 }

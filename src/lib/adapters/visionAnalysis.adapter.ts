@@ -13,6 +13,25 @@ export interface VisionAnalysisResult {
   suggestedTags: string[];
 }
 
+
+export interface VerificationAnalysisResult {
+  issueResolved: boolean;
+  regressionDetected: boolean;
+  summary: string;
+  explanation: string;
+  confidence: number;
+}
+
+export interface VerificationAnalysisInput {
+  taskTitle: string;
+  originalIssueSummary: string;
+  expectedOutcome: string;
+  beforeScreenshotBase64?: string;
+  afterScreenshotBase64?: string;
+  beforeConsoleLogs?: string[];
+  afterConsoleLogs?: string[];
+}
+
 export interface VisionAnalysisInput {
   taskTitle: string;
   targetUrl: string;
@@ -50,6 +69,80 @@ const getMockResult = (): VisionAnalysisResult => ({
  * Includes graceful fallback if the VITE_GEMINI_API_KEY is not set.
  */
 export const visionAnalysisAdapter = {
+
+  async compareBeforeAfter(input: VerificationAnalysisInput): Promise<VerificationAnalysisResult> {
+    if (!config.geminiApiKey || !config.liveMode) {
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      return {
+        issueResolved: true,
+        regressionDetected: false,
+        summary: "Mock verification passed. The issue appears resolved.",
+        explanation: "Simulated comparison of before/after state based on mock data.",
+        confidence: 0.95
+      };
+    }
+
+    try {
+      const ai = new GoogleGenAI({ apiKey: config.geminiApiKey });
+      const prompt = `
+        You are an expert Frontend QA AI agent. Compare the before and after state of the application
+        to determine if the original issue was resolved and if any new regressions were introduced.
+
+        Task Title: ${input.taskTitle}
+        Original Issue Summary: ${input.originalIssueSummary}
+        Expected Outcome: ${input.expectedOutcome}
+
+        Before Console Logs: ${input.beforeConsoleLogs?.join('\n') || 'None'}
+        After Console Logs: ${input.afterConsoleLogs?.join('\n') || 'None'}
+
+        Respond ONLY with a valid JSON object matching this schema exactly:
+        {
+          "issueResolved": boolean,
+          "regressionDetected": boolean,
+          "summary": "string",
+          "explanation": "string",
+          "confidence": 0-1 (number)
+        }
+      `;
+
+      const contents: any[] = [prompt];
+
+      if (input.beforeScreenshotBase64) {
+        contents.push({ inlineData: { data: input.beforeScreenshotBase64.replace(/^data:image\/\w+;base64,/, ''), mimeType: 'image/png' } });
+      }
+      if (input.afterScreenshotBase64) {
+        contents.push({ inlineData: { data: input.afterScreenshotBase64.replace(/^data:image\/\w+;base64,/, ''), mimeType: 'image/png' } });
+      }
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-pro',
+        contents: contents,
+      });
+
+      if (response.text) {
+        try {
+          const jsonStr = response.text.replace(/```json\n?|\n?```/g, '').trim();
+          return JSON.parse(jsonStr) as VerificationAnalysisResult;
+        } catch (e) {
+          console.error('Failed to parse Gemini verification JSON output', e);
+        }
+      }
+
+      throw new Error('Invalid or empty response text from Gemini');
+
+    } catch (error) {
+      console.error('Verification Analysis failed:', error);
+      return {
+        issueResolved: false,
+        regressionDetected: false,
+        summary: "Analysis failed, unable to confirm resolution.",
+        explanation: "The AI model failed to return a valid comparison.",
+        confidence: 0.1
+      };
+    }
+  }
+,
+
   async analyzeUi(input: VisionAnalysisInput): Promise<VisionAnalysisResult> {
     if (!config.geminiApiKey || !config.liveMode) {
       await new Promise(resolve => setTimeout(resolve, 2000));

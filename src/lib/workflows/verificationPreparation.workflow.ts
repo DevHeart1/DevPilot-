@@ -1,6 +1,7 @@
 import { taskService, patchProposalService } from '../services';
 import { runService } from '../services/run.service';
 import { gitlabAdapter } from '../adapters/gitlab.adapter';
+import { runPostFixVerificationWorkflow } from './postFixVerification.workflow';
 
 export const runVerificationPreparationWorkflow = async (taskId: string, proposalId: string) => {
   const task = await taskService.getTaskById(taskId);
@@ -74,6 +75,9 @@ export const runVerificationPreparationWorkflow = async (taskId: string, proposa
       kind: 'success',
       timestamp: Date.now()
     });
+
+    // Automatically trigger post-fix verification
+    runPostFixVerificationWorkflow(taskId);
 
   } else {
     // Failure path

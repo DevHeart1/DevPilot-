@@ -62,3 +62,4 @@ export const taskService = {
   }
 };
 export * from './patchProposal.service';
+export * from './verificationComparison.service';

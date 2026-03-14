@@ -292,6 +292,9 @@ const TaskDetail = ({ taskId, onBack }: { taskId: string, onBack: () => void }) 
   }, [task?.status, taskId, task?.inspectionStatus]);
 
   const handleApprove = async () => {
+    // Prevent double triggers
+    if (run?.phase === 'verification') return;
+
     if (latestProposal && latestProposal.status === 'ready_for_review') {
       runVerificationPreparationWorkflow(taskId, latestProposal.id);
     } else {
@@ -314,49 +317,26 @@ const TaskDetail = ({ taskId, onBack }: { taskId: string, onBack: () => void }) 
       });
 
       await taskService.updateTaskStatus(taskId, 'merged');
-    }
 
-    // Requirement 9: Update artifacts with final completion content
-    if (task) {
-      // Mock final completion content
-      const diffContent = `--- a/src/components/MomentsGrid.tsx\n+++ b/src/components/MomentsGrid.tsx\n@@ -45,7 +45,7 @@\n-      <div className="card-header overflow-hidden">\n+      <div className="card-header overflow-hidden w-full overflow-x-auto whitespace-nowrap">\n         <div className="title text-lg font-bold">Moments</div>\n         <div className="actions flex gap-2">`;
-
-      const logContent = `[SUCCESS] Build completed successfully.\n[INFO] Tests passed: 42/42\n[INFO] Coverage: 95.5%\n[SUCCESS] Deployment artifact generated.`;
-
-      const terminalContent = `> npm run build\n\n> vite build\nvite v6.4.1 building for production...\n✓ 45 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/index.html                   0.83 kB │ gzip:   0.44 kB\n✓ built in 3.77s`;
-
-      await taskService.updateTaskArtifact(taskId, 'diff', diffContent);
-      await taskService.updateTaskArtifact(taskId, 'log', logContent);
-      await taskService.updateTaskArtifact(taskId, 'terminal', terminalContent);
-    }
-
-    if (run) {
-      await runService.updateAgentRunProgress(run.id, run.totalSteps, "Completed", "completed");
-      if (runSteps) {
-         for (const step of runSteps) {
-            if (step.status === 'running' || step.status === 'pending') {
-               await runService.updateRunStepStatus(step.id, 'completed', "Approved");
-            }
-         }
+      if (run) {
+        await runService.updateAgentRunProgress(run.id, run.totalSteps, "Completed", "completed");
+        if (runSteps) {
+           for (const step of runSteps) {
+              if (step.status === 'running' || step.status === 'pending') {
+                 await runService.updateRunStepStatus(step.id, 'completed', "Approved");
+              }
+           }
+        }
+        await runService.createAgentEvent({
+          taskId,
+          source: "orchestrator",
+          type: "RUN_COMPLETED",
+          title: "Workflow Completed",
+          description: "Task workflow merged and closed.",
+          metadata: "{}",
+          timestamp: Date.now()
+        });
       }
-      await runService.createAgentEvent({
-        taskId,
-        source: "orchestrator",
-        type: "RUN_COMPLETED",
-        title: "Workflow Completed",
-        description: "Task workflow merged and closed.",
-        metadata: "{}",
-        timestamp: Date.now()
-      });
-      await memoryService.storeMemoryRecord({
-        scope: "bug_fix",
-        title: `Fix pattern for ${task?.title || taskId}`,
-        content: "Successfully resolved UI overflow using horizontal scrolling container approach.",
-        tags: ["ui", "layout", "mobile", "approved"],
-        confidence: 1.0,
-        createdAt: Date.now(),
-        updatedAt: Date.now()
-      });
     }
   };
 
@@ -412,9 +392,9 @@ const TaskDetail = ({ taskId, onBack }: { taskId: string, onBack: () => void }) 
           <button
             className="flex items-center gap-2 px-4 py-1.5 rounded-lg bg-primary text-background-dark text-sm font-bold hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             onClick={handleApprove}
-            disabled={task.status !== 'running'}
+            disabled={task.status !== 'running' || run?.phase === 'verification'}
           >
-            <span>Approve & Commit</span>
+            <span>{run?.phase === 'verification' ? 'Verifying...' : 'Approve & Commit'}</span>
           </button>
           <div className="size-8 rounded-full bg-surface-dark border border-border-dark flex items-center justify-center overflow-hidden">
              <div className="size-full bg-gradient-to-tr from-primary to-orange-200"></div>
