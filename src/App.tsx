@@ -292,7 +292,7 @@ const TaskDetail = ({ taskId, onBack }: { taskId: string, onBack: () => void }) 
   }, [task?.status, taskId, task?.inspectionStatus]);
 
   const handleApprove = async () => {
-    if (config.liveMode && latestProposal && latestProposal.status === 'ready_for_review') {
+    if (latestProposal && latestProposal.status === 'ready_for_review') {
       runVerificationPreparationWorkflow(taskId, latestProposal.id);
     } else {
       await taskService.appendAgentMessage({

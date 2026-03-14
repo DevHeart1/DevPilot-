@@ -38,7 +38,8 @@ export const runCodeFixWorkflow = async (taskId: string) => {
       key: s.key,
       label: s.label,
       status: "pending",
-      detail: s.detail
+      detail: s.detail,
+      phase: "code_fix"
     }))
   );
 
@@ -59,11 +60,11 @@ export const runCodeFixWorkflow = async (taskId: string) => {
   try {
     // Step 1: Analyze targets from vision analysis
     await runService.updateRunStepStatus(stepRecords[0], 'running', 'Reading vision analysis...');
-    const visionArtifacts = await taskService.getArtifactsByTaskIdAndType(taskId, 'vision_analysis');
+    const visionArtifact = await taskService.getArtifactsByTaskIdAndType(taskId, 'vision_analysis');
     let visionAnalysisResult: any = {};
-    if (visionArtifacts && visionArtifacts.content) {
+    if (visionArtifact && visionArtifact.content) {
       try {
-        visionAnalysisResult = JSON.parse(visionArtifacts[0].content);
+        visionAnalysisResult = JSON.parse(visionArtifact.content);
       } catch (e) { }
     }
 
