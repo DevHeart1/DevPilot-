@@ -22,7 +22,7 @@ import { Legal, PrivacyPolicyContent, TermsOfServiceContent } from './pages/Lega
 import { Support } from './pages/Support';
 
 const Header = ({ navigate }: { navigate: (page: string) => void }) => (
-  <header className="flex items-center justify-between px-6 py-4 border-b border-border-subtle bg-background-dark/50 backdrop-blur-md sticky top-0 z-50">
+  <header className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-border-subtle bg-background-dark/50 backdrop-blur-md sticky top-0 z-50">
     <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate('dashboard')}>
       <div className="flex size-8 items-center justify-center rounded bg-primary text-black">
         <span className="material-symbols-outlined text-[20px] font-bold">bolt</span>
@@ -46,8 +46,8 @@ const Header = ({ navigate }: { navigate: (page: string) => void }) => (
 );
 
 const Hero = () => (
-  <div className="flex flex-col items-center text-center mb-10">
-    <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-white mb-8">
+  <div className="flex flex-col items-center text-center mb-8 sm:mb-10 px-2 sm:px-0">
+    <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-white mb-6 sm:mb-8">
       What should we automate next?
     </h1>
     <div className="w-full max-w-2xl bg-surface border border-border-subtle rounded-xl shadow-2xl focus-within:border-primary/50 transition-all p-1">
@@ -90,7 +90,7 @@ const Tabs = ({ activeTab, onTabChange }: { activeTab: Task['category'], onTabCh
   ];
 
   return (
-    <div className="flex items-center border-b border-border-subtle mb-8 gap-8">
+    <div className="flex items-center border-b border-border-subtle mb-6 sm:mb-8 gap-4 sm:gap-8 overflow-x-auto whitespace-nowrap hide-scrollbar">
       {tabs.map(tab => (
         <button
           key={tab.id}
@@ -128,10 +128,10 @@ const TaskItem = ({ title, status, time, branch, additions, deletions, onClick }
   }
 
   return (
-    <div onClick={onClick} className="group flex flex-col md:flex-row md:items-center justify-between p-5 hover:bg-surface-dark/50 hover:scale-[1.01] hover:shadow-lg hover:z-10 relative transition-all duration-200 border-t border-border-subtle first:border-t-0 cursor-pointer">
+    <div onClick={onClick} className="group flex flex-col md:flex-row md:items-center justify-between p-4 sm:p-5 hover:bg-surface-dark/50 hover:scale-[1.01] hover:shadow-lg hover:z-10 relative transition-all duration-200 border-t border-border-subtle first:border-t-0 cursor-pointer">
       <div className="flex flex-col gap-1.5">
-        <div className="flex items-center gap-3">
-          <span className="text-sm font-medium text-slate-100 group-hover:text-primary transition-colors">{title}</span>
+        <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto justify-end">
+          <span className="text-sm font-medium text-slate-100 group-hover:text-primary transition-colors line-clamp-2 md:line-clamp-1 break-words">{title}</span>
           <span className={`px-2 py-0.5 rounded text-[10px] font-bold border uppercase tracking-wider ${statusClasses}`}>
             {status}
           </span>
@@ -365,7 +365,7 @@ const TaskDetail = ({ taskId, onBack }: { taskId: string, onBack: () => void }) 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-background-dark text-slate-100 font-display selection:bg-primary/30">
       {/* Header */}
-      <header className="flex items-center justify-between border-b border-border-dark px-6 py-3 bg-background-dark">
+      <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-border-dark px-4 sm:px-6 py-3 bg-background-dark gap-4 sm:gap-0">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-1.5 text-sm text-slate-400 cursor-pointer hover:text-slate-300" onClick={onBack}>
             <span className="material-symbols-outlined text-primary text-xl mr-2">rocket_launch</span>
@@ -404,7 +404,7 @@ const TaskDetail = ({ taskId, onBack }: { taskId: string, onBack: () => void }) 
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto justify-end">
           <button className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface-dark border border-border-dark text-sm font-semibold hover:bg-surface-dark/80 transition-colors">
             <span className="material-symbols-outlined text-primary text-lg">visibility</span>
             <span>View PR</span>
@@ -423,9 +423,9 @@ const TaskDetail = ({ taskId, onBack }: { taskId: string, onBack: () => void }) 
       </header>
 
       {/* Main Layout Grid */}
-      <main className="flex flex-1 overflow-hidden">
+      <main className="flex flex-col md:flex-row flex-1 overflow-hidden">
         {/* Left Sidebar: AI Chat */}
-        <aside className={`${isAgentOpen ? 'w-80' : 'w-12'} border-r border-border-dark flex flex-col bg-background-dark transition-all duration-300`}>
+        <aside className={`absolute md:relative z-40 md:static ${isAgentOpen ? 'w-[85vw] sm:w-80 border-r shadow-2xl md:shadow-none' : 'w-12 border-r'} h-full md:h-auto border-border-dark flex flex-col bg-background-dark transition-all duration-300`}>
           <div 
             className="p-4 border-b border-border-dark flex items-center justify-between cursor-pointer hover:bg-surface-dark/50"
             onClick={() => setIsAgentOpen(!isAgentOpen)}
@@ -433,7 +433,7 @@ const TaskDetail = ({ taskId, onBack }: { taskId: string, onBack: () => void }) 
             {isAgentOpen ? (
               <>
                 <span className="text-xs font-bold uppercase tracking-widest text-slate-500">Agent Intelligence</span>
-                <span className="material-symbols-outlined text-slate-500 text-sm">keyboard_double_arrow_left</span>
+                <span className="material-symbols-outlined text-slate-500 text-sm hidden md:block">keyboard_double_arrow_left</span><span className="material-symbols-outlined text-slate-500 text-sm block md:hidden">keyboard_double_arrow_up</span>
               </>
             ) : (
               <div className="flex flex-col items-center gap-4 w-full py-3">
@@ -513,7 +513,7 @@ const TaskDetail = ({ taskId, onBack }: { taskId: string, onBack: () => void }) 
                       <div className="size-2.5 rounded-full bg-yellow-500/50"></div>
                       <div className="size-2.5 rounded-full bg-green-500/50"></div>
                     </div>
-                    <span className="material-symbols-outlined text-slate-500 text-sm">keyboard_double_arrow_left</span>
+                    <span className="material-symbols-outlined text-slate-500 text-sm hidden md:block">keyboard_double_arrow_left</span><span className="material-symbols-outlined text-slate-500 text-sm block md:hidden">keyboard_double_arrow_up</span>
                   </div>
                 </>
               ) : (
@@ -592,7 +592,7 @@ const TaskDetail = ({ taskId, onBack }: { taskId: string, onBack: () => void }) 
           </section>
 
           {/* Code & Diff Panel */}
-          <section className={`${isCodeOpen ? 'flex-1' : 'w-12 flex-none'} flex flex-col bg-background-dark transition-all duration-300`}>
+          <section className={`absolute bottom-0 right-0 z-40 md:static ${isCodeOpen ? 'w-full h-[60vh] md:h-auto md:flex-1 md:w-auto shadow-2xl md:shadow-none border-t md:border-t-0' : 'w-full h-12 md:h-auto md:w-12 flex-none border-t md:border-t-0'} flex flex-col bg-background-dark transition-all duration-300`}>
             <div 
               className="flex border-b border-border-dark bg-surface-dark/20 cursor-pointer hover:bg-surface-dark/40"
             >
@@ -607,8 +607,8 @@ const TaskDetail = ({ taskId, onBack }: { taskId: string, onBack: () => void }) 
                   </div>
                 </>
               ) : (
-                <div className="flex flex-col items-center gap-4 w-full py-3" onClick={() => setIsCodeOpen(true)}>
-                  <span className="material-symbols-outlined text-slate-500 text-sm">keyboard_double_arrow_left</span>
+                <div className="flex flex-row md:flex-col items-center justify-center gap-4 w-full h-full md:py-3 cursor-pointer hover:bg-white/5" onClick={() => setIsCodeOpen(true)}>
+                  <span className="material-symbols-outlined text-slate-500 text-sm hidden md:block">keyboard_double_arrow_left</span><span className="material-symbols-outlined text-slate-500 text-sm block md:hidden">keyboard_double_arrow_up</span>
                   <span className="material-symbols-outlined text-slate-400 text-sm">code</span>
                 </div>
               )}
@@ -741,7 +741,7 @@ export default function App() {
   return (
     <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden bg-background-dark text-slate-100 font-display">
       <Header navigate={navigate} />
-      <main className="flex-1 max-w-4xl mx-auto w-full px-6 py-12">
+      <main className="flex-1 max-w-4xl mx-auto w-full px-4 sm:px-6 py-8 sm:py-12">
         <Hero />
         <Tabs activeTab={activeTab} onTabChange={setActiveTab} />
         <TaskList activeTab={activeTab} onSelectTask={(id) => navigate('task_detail', id)} />
