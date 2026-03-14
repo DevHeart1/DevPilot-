@@ -1,5 +1,5 @@
 import Dexie, { Table } from 'dexie';
-import { Task, AgentMessage, TaskArtifact, Memory, AgentRun, AgentEvent, RunStep, TaskMemoryHit, PatchProposal, PatchFile, VerificationPlan, VerificationResult, VerificationEvidence } from '../../types';
+import { Task, AgentMessage, TaskArtifact, Memory, AgentRun, AgentEvent, RunStep, TaskMemoryHit, PatchProposal, PatchFile, VerificationPlan, VerificationResult, VerificationEvidence, GitLabDuoFlowRun } from '../../types';
 
 export class DevPilotDB extends Dexie {
   tasks!: Table<Task>;
@@ -15,6 +15,7 @@ export class DevPilotDB extends Dexie {
   verificationPlans!: Table<VerificationPlan>;
   verificationResults!: Table<VerificationResult>;
   verificationEvidences!: Table<VerificationEvidence>;
+  gitLabDuoFlowRuns!: Table<GitLabDuoFlowRun>;
 
   constructor() {
     super('DevPilotDB');
@@ -35,6 +36,27 @@ export class DevPilotDB extends Dexie {
       agentEvents: 'id, taskId, timestamp',
       runSteps: 'id, runId, taskId, order',
       taskMemoryHits: 'id, taskId, memoryId'
+    }).upgrade(tx => {
+      return tx.table('tasks').toCollection().modify(task => {
+        // Migration logic if any
+      });
+    });
+
+    this.version(6).stores({
+      tasks: 'id, category, status, createdAt',
+      agentMessages: 'id, taskId, timestamp',
+      taskArtifacts: 'id, taskId, type',
+      memories: 'id, scope, createdAt',
+      agentRuns: 'id, taskId, status',
+      agentEvents: 'id, taskId, timestamp',
+      runSteps: 'id, runId, taskId, order',
+      taskMemoryHits: 'id, taskId, memoryId',
+      patchProposals: 'id, taskId, status',
+      patchFiles: 'id, proposalId, taskId',
+      verificationPlans: 'id, taskId, proposalId',
+      verificationResults: 'id, taskId, proposalId, status',
+      verificationEvidences: 'id, verificationResultId, taskId, type',
+      gitLabDuoFlowRuns: 'id, taskId, flowRunId, agentRole, status, createdAt'
     }).upgrade(tx => {
       return tx.table('agentRuns').toCollection().modify(run => {
         run.progress = run.progress ?? 0;

@@ -182,3 +182,25 @@ export interface VerificationEvidence {
   artifactId: string;
   createdAt: number;
 }
+
+
+export type AgentRole = "ui_inspector" | "code_fixer" | "verifier";
+export type AgentType = "custom" | "standard";
+
+export interface GitLabDuoFlowRun {
+  id: string; // Internal Dexie UUID
+  taskId: string;
+  flowRunId: string; // Represents the GitLab Duo API flow run ID
+  flowName: string;
+  flowStepKey: string;
+  agentRole: AgentRole;
+  agentType: AgentType;
+  agentInvocationId: string;
+  handoffState: "pending" | "approved" | "completed" | "failed";
+  approvalCheckpoint: boolean;
+  gitlabContextRef?: string;
+  projectRef?: string;
+  status: "running" | "completed" | "failed" | "paused";
+  createdAt: number;
+  updatedAt: number;
+}

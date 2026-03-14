@@ -1,6 +1,6 @@
 import { taskService, patchProposalService } from '../services';
 import { runService } from '../services/run.service';
-import { gitlabAdapter } from '../adapters/gitlab.adapter';
+import { gitlabRepositoryAdapter } from '../adapters/gitlabRepository.adapter';
 import { runPostFixVerificationWorkflow } from './postFixVerification.workflow';
 
 export const runVerificationPreparationWorkflow = async (taskId: string, proposalId: string) => {
@@ -19,7 +19,7 @@ export const runVerificationPreparationWorkflow = async (taskId: string, proposa
   });
 
   // Handoff to GitLab
-  const result = await gitlabAdapter.applyPatchProposal(taskId, proposalId);
+  const result = await gitlabRepositoryAdapter.applyPatchProposal(taskId, proposalId);
 
   if (result.success) {
     await taskService.updateTask(taskId, { status: 'merged' });

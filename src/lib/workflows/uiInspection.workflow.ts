@@ -1,5 +1,6 @@
 import { runCodeFixWorkflow } from './codeFix.workflow';
 import { taskService } from '../services';
+import { gitlabDuoAdapter } from '../adapters/gitlabDuo.adapter';
 import { runService } from '../services/run.service';
 import { memoryService } from '../services/memory.service';
 import { sandboxAdapter } from '../adapters/sandbox.adapter';

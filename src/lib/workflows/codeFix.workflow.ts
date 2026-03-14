@@ -2,6 +2,7 @@ import { taskService, patchProposalService } from '../services';
 import { runService } from '../services/run.service';
 import { memoryService } from '../services/memory.service';
 import { codeAgentAdapter } from '../adapters/codeAgent.adapter';
+import { gitlabDuoAdapter } from '../adapters/gitlabDuo.adapter';
 
 export const runCodeFixWorkflow = async (taskId: string) => {
   const task = await taskService.getTaskById(taskId);

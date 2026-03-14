@@ -8,7 +8,7 @@ export interface GitLabHandoffResult {
   logs?: string[];
 }
 
-export const gitlabAdapter = {
+export const gitlabRepositoryAdapter = {
   /**
    * Pushes the approved patch proposal to the upstream remote and creates a Merge Request.
    * Mocked for demo mode unless a live backend integration exists.
