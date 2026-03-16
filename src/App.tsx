@@ -14,7 +14,8 @@ import { Task } from "./types";
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { AdvancedChatInput } from './components/AdvancedChatInput';
 import { Documentation } from './pages/Documentation';
 import { Changelog } from './pages/Changelog';
 import { Settings } from './pages/Settings';
@@ -267,6 +268,35 @@ const FloatingIndicator = () => (
 );
 
 const TaskDetail = ({ taskId, onBack }: { taskId: string, onBack: () => void }) => {
+
+  const [availableProjects, setAvailableProjects] = useState<string[]>(['DevPilot', 'React-Example', 'Backend-Service']);
+  const [availableBranches, setAvailableBranches] = useState<string[]>(['main', 'develop', 'feature/auth', 'fix/ui-bug']);
+
+  useEffect(() => {
+    const fetchDropdownData = async () => {
+        await new Promise(r => setTimeout(r, 500));
+        setAvailableProjects(['DevPilot', 'Core-API', 'Frontend-Web', 'Shared-UI']);
+        setAvailableBranches(['main', 'develop', 'patch-1', 'feature/login']);
+    };
+    fetchDropdownData();
+  }, []);
+
+  const handleChatSubmit = async (content: string, project: string, branch: string) => {
+    if (!taskId) return;
+
+    console.log(`Chat submitted on project ${project}, branch ${branch}`);
+
+    await taskService.appendAgentMessage({
+      taskId: taskId,
+      sender: 'ui_agent',
+      content: content,
+      kind: 'info',
+      timestamp: Date.now()
+    });
+  };
+
+
+
   const [isAgentOpen, setIsAgentOpen] = useState(true);
   const [isBrowserOpen, setIsBrowserOpen] = useState(true);
   const [isCodeOpen, setIsCodeOpen] = useState(true);
@@ -462,14 +492,14 @@ const TaskDetail = ({ taskId, onBack }: { taskId: string, onBack: () => void }) 
                   </div>
                 )}
               </div>
-              <div className="p-4 border-t border-border-dark">
-                <div className="relative">
-                  <input className="w-full bg-surface-dark border border-border-dark rounded-lg py-2 pl-3 pr-10 text-sm focus:ring-1 focus:ring-primary focus:border-primary outline-none" placeholder="Ask the agent..." type="text" />
-                  <button className="absolute right-2 top-1.5 text-slate-500 hover:text-primary">
-                    <span className="material-symbols-outlined">send</span>
-                  </button>
-                </div>
-              </div>
+              <AdvancedChatInput
+        onSendMessage={(content, project, branch) => {
+            console.log('Sending message:', content, project, branch);
+            handleChatSubmit(content, project, branch);
+        }}
+        projects={availableProjects}
+        branches={availableBranches}
+    />
             </>
           )}
         </aside>
@@ -677,6 +707,12 @@ const TaskDetail = ({ taskId, onBack }: { taskId: string, onBack: () => void }) 
 
 
 export default function App() {
+
+
+
+
+
+
   const [currentPage, setCurrentPage] = useState('dashboard');
   const [selectedTask, setSelectedTask] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<Task['category']>('tasks');
