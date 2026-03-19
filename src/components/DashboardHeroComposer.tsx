@@ -150,10 +150,11 @@ export const DashboardHeroComposer: React.FC<DashboardHeroComposerProps> = ({
             <div className="absolute inset-x-6 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.28),transparent)]" />
 
             <form
-              className="flex flex-col gap-4 px-4 py-4 sm:px-5 lg:flex-row lg:items-center lg:gap-3"
+              className="flex flex-col gap-3 px-4 py-4 sm:px-5"
               onSubmit={submit}
             >
-              <div className="flex min-w-0 flex-1 items-center gap-3 rounded-[20px] border border-white/5 bg-black/[0.15] px-3 py-3">
+              {/* Command Input — full-width row on top */}
+              <div className="flex min-w-0 items-center gap-3 rounded-[20px] border border-white/5 bg-black/[0.15] px-3 py-3">
                 <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-primary/[0.12] text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
                   <Search className="h-[18px] w-[18px]" />
                 </div>
@@ -173,7 +174,8 @@ export const DashboardHeroComposer: React.FC<DashboardHeroComposerProps> = ({
                 </div>
               </div>
 
-              <div className="flex w-full flex-wrap items-stretch gap-2 lg:w-auto lg:flex-nowrap lg:justify-end">
+              {/* Repository · Branch · Run Mode — second row beneath */}
+              <div className="flex w-full flex-wrap items-stretch gap-2 sm:flex-nowrap">
                 <HeroControlChip
                   icon={Folder}
                   label="Repository"
@@ -201,11 +203,10 @@ export const DashboardHeroComposer: React.FC<DashboardHeroComposerProps> = ({
                         <button
                           key={branch}
                           type="button"
-                          className={`block w-full rounded-xl px-3 py-2 text-left text-sm transition-colors ${
-                            branch === selectedBranch
+                          className={`block w-full rounded-xl px-3 py-2 text-left text-sm transition-colors ${branch === selectedBranch
                               ? "bg-primary/10 text-primary"
                               : "text-slate-300 hover:bg-white/[0.06]"
-                          }`}
+                            }`}
                           onClick={() => {
                             onBranchChange(branch);
                             setIsBranchOpen(false);
