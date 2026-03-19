@@ -2,6 +2,11 @@ import { db } from '../db';
 import { AgentRun, AgentEvent, RunStep } from '../../types';
 
 export const runService = {
+  createAgentRun: async (run: AgentRun): Promise<string> => {
+    await db.agentRuns.add(run);
+    return run.id;
+  },
+
   createAgentEvent: async (event: Omit<AgentEvent, 'id'>): Promise<string> => {
     const newEvent = { ...event, id: crypto.randomUUID() };
     return await db.agentEvents.add(newEvent) as string;

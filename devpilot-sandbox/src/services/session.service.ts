@@ -1,106 +1,162 @@
-import { chromium, Browser, BrowserContext, Page } from 'playwright';
+import { chromium, Browser, BrowserContext, ConsoleMessage, Page } from "playwright";
+
+export interface SandboxViewport {
+  width: number;
+  height: number;
+}
 
 export interface SandboxSession {
   id: string;
-  status: 'initializing' | 'active' | 'closed' | 'failed';
+  status: "initializing" | "active" | "closed" | "failed";
   browser?: Browser;
   context?: BrowserContext;
   page?: Page;
   createdAt: number;
+  currentUrl: string;
+  viewportInfo: SandboxViewport;
+  consoleLogs: string[];
 }
+
+const DEFAULT_VIEWPORT: SandboxViewport = { width: 1280, height: 800 };
 
 export class SessionService {
   private activeSession: SandboxSession | null = null;
-  private readonly defaultViewport = { width: 1280, height: 800 };
 
   constructor() {
-    // Rely on start.sh to have DISPLAY=:99 set and xvfb running
     if (!process.env.DISPLAY) {
-      process.env.DISPLAY = ':99';
+      process.env.DISPLAY = ":99";
     }
   }
 
-  async createSession(id: string): Promise<SandboxSession> {
-    if (this.activeSession && this.activeSession.status !== 'closed') {
-      throw new Error('A session is already active in this container. Cloud Run concurrency should manage multiple containers.');
+  private trackConsoleMessage(session: SandboxSession, message: ConsoleMessage): void {
+    const text = `[${message.type().toUpperCase()}] ${message.text()}`;
+    session.consoleLogs.push(text);
+    if (session.consoleLogs.length > 200) {
+      session.consoleLogs.shift();
+    }
+  }
+
+  private serializeSession(session: SandboxSession) {
+    return {
+      id: session.id,
+      status: session.status,
+      vncUrl: `/novnc/vnc.html?path=websockify&autoconnect=true&resize=remote`,
+      createdAt: session.createdAt,
+      currentUrl: session.currentUrl,
+      viewportInfo: session.viewportInfo,
+      consoleLogs: session.consoleLogs,
+    };
+  }
+
+  async createSession(
+    id: string,
+    targetUrl: string,
+    viewport: SandboxViewport = DEFAULT_VIEWPORT,
+  ): Promise<SandboxSession> {
+    if (this.activeSession && this.activeSession.status !== "closed") {
+      throw new Error(
+        "A session is already active in this container. Cloud Run concurrency should manage multiple containers.",
+      );
     }
 
     this.activeSession = {
       id,
-      status: 'initializing',
+      status: "initializing",
       createdAt: Date.now(),
+      currentUrl: targetUrl,
+      viewportInfo: viewport,
+      consoleLogs: [],
     };
 
     try {
-      // Launch Chromium connecting to the virtual X display
       const browser = await chromium.launch({
-        headless: false, // Important: must be false to render on X11
+        headless: false,
         args: [
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-dev-shm-usage',
-          '--disable-gpu', // Usually better for software rendering on xvfb
-          '--window-position=0,0',
-          `--window-size=${this.defaultViewport.width},${this.defaultViewport.height}`,
-          '--start-maximized',
+          "--no-sandbox",
+          "--disable-setuid-sandbox",
+          "--disable-dev-shm-usage",
+          "--disable-gpu",
+          "--window-position=0,0",
+          `--window-size=${viewport.width},${viewport.height}`,
+          "--start-maximized",
         ],
       });
 
       const context = await browser.newContext({
-        viewport: this.defaultViewport,
-        userAgent: 'DevPilot Sandbox Browser/1.0',
-        locale: 'en-US',
+        viewport,
+        userAgent: "DevPilot Sandbox Browser/1.0",
+        locale: "en-US",
       });
 
       const page = await context.newPage();
+      page.on("console", (message) => this.trackConsoleMessage(this.activeSession!, message));
+      page.on("pageerror", (error) => {
+        this.activeSession?.consoleLogs.push(`[PAGEERROR] ${error.message}`);
+      });
+      page.on("requestfailed", (request) => {
+        this.activeSession?.consoleLogs.push(
+          `[REQUESTFAILED] ${request.method()} ${request.url()} :: ${request.failure()?.errorText ?? "unknown"}`,
+        );
+      });
 
-      // Navigate to a blank page or default dev environment
-      await page.goto('about:blank');
+      await page.goto(targetUrl, { waitUntil: "networkidle" });
 
       this.activeSession.browser = browser;
       this.activeSession.context = context;
       this.activeSession.page = page;
-      this.activeSession.status = 'active';
+      this.activeSession.status = "active";
+      this.activeSession.currentUrl = page.url();
 
       return this.activeSession;
     } catch (error) {
-      console.error('Failed to initialize Playwright session:', error);
       if (this.activeSession) {
-        this.activeSession.status = 'failed';
+        this.activeSession.status = "failed";
+        this.activeSession.consoleLogs.push(
+          `[SESSIONERROR] ${error instanceof Error ? error.message : String(error)}`,
+        );
       }
       throw error;
     }
   }
 
   getSession(id?: string): SandboxSession | null {
-    if (!this.activeSession) return null;
-    if (id && this.activeSession.id !== id) return null;
+    if (!this.activeSession) {
+      return null;
+    }
+    if (id && this.activeSession.id !== id) {
+      return null;
+    }
     return this.activeSession;
+  }
+
+  getSerializableSession(id?: string) {
+    const session = this.getSession(id);
+    return session ? this.serializeSession(session) : null;
   }
 
   async captureScreenshot(id: string): Promise<Buffer> {
     const session = this.getSession(id);
-    if (!session || session.status !== 'active' || !session.page) {
-      throw new Error('No active session or page available for screenshot.');
+    if (!session || session.status !== "active" || !session.page) {
+      throw new Error("No active session or page available for screenshot.");
     }
-    return await session.page.screenshot({ type: 'png', fullPage: true });
+
+    session.currentUrl = session.page.url();
+    return session.page.screenshot({ type: "png", fullPage: true });
   }
 
   async closeSession(id: string): Promise<void> {
     const session = this.getSession(id);
     if (!session) {
-      return; // Already closed or doesn't exist
+      return;
     }
 
     try {
       if (session.browser) {
         await session.browser.close();
       }
-    } catch (error) {
-      console.error('Error closing browser:', error);
     } finally {
       if (this.activeSession) {
-        this.activeSession.status = 'closed';
+        this.activeSession.status = "closed";
         this.activeSession.browser = undefined;
         this.activeSession.context = undefined;
         this.activeSession.page = undefined;

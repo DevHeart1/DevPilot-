@@ -21,8 +21,8 @@ export const memoryService = {
     const task = await db.tasks.get(taskId);
     if (!task) return undefined;
 
-    // A lightweight hybrid retrieval for mock purposes
-    // Check titles for keywords related to the task title
+    // A lightweight hybrid retrieval for the local MVP.
+    // Check titles for keywords related to the task title.
     const keywords = task.title.toLowerCase().split(' ').filter(w => w.length > 3);
     const allMemories = await db.memories.toArray();
 
@@ -42,7 +42,7 @@ export const memoryService = {
       return { memory: m, score };
     }).sort((a, b) => b.score - a.score);
 
-    // Return the highest scoring memory if it crosses a mock threshold
+    // Return the highest scoring memory when it crosses the confidence threshold.
     if (scoredMemories.length > 0 && scoredMemories[0].score > 0.5) {
       return scoredMemories[0].memory;
     }

@@ -16,6 +16,7 @@ export const config = {
   gitlabDuoToken: (import.meta as any).env.VITE_GITLAB_DUO_TOKEN || '',
   liveMode: getEnvVar('VITE_LIVE_MODE', 'false') === 'true',
   liveGitlabMode: getEnvVar('VITE_LIVE_GITLAB_MODE', 'false') === 'true',
+  sandboxUrl: getEnvVar('VITE_SANDBOX_URL', 'http://localhost:8080'),
   targetAppBaseUrl: getEnvVar('VITE_TARGET_APP_BASE_URL', 'http://localhost:3000'),
 
   // Gemini
@@ -35,4 +36,13 @@ export const config = {
   liveRepositoryMode: getEnvVar('VITE_LIVE_REPOSITORY_MODE', 'false') === 'true',
   liveEventMode: getEnvVar('VITE_LIVE_EVENT_MODE', 'false') === 'true',
   webhookSecret: getEnvVar('VITE_GITLAB_WEBHOOK_SECRET'),
+  get isGitLabConfigured() {
+    return !!(this.liveRepositoryMode && this.gitlabToken && this.gitlabProjectId);
+  },
+  get isGeminiConfigured() {
+    return !!(this.liveMode && this.geminiApiKey);
+  },
+  get isSandboxConfigured() {
+    return !!this.sandboxUrl;
+  },
 };

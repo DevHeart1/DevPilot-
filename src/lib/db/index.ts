@@ -92,6 +92,39 @@ export class DevPilotDB extends Dexie {
       gitlabPipelineRecords: 'id, taskId, proposalId, pipelineId, status'
     });
 
+    this.version(9).stores({
+      tasks: 'id, category, status, createdAt',
+      agentMessages: 'id, taskId, timestamp',
+      taskArtifacts: 'id, [taskId+type]',
+      memories: 'id, scope, createdAt',
+      agentRuns: 'id, taskId, status',
+      agentEvents: 'id, taskId, timestamp',
+      runSteps: 'id, runId, taskId, order',
+      taskMemoryHits: 'id, taskId, memoryId',
+      patchProposals: 'id, taskId, status',
+      patchFiles: 'id, proposalId, taskId',
+      verificationPlans: 'id, taskId, proposalId',
+      verificationResults: 'id, taskId, proposalId, status',
+      verificationEvidences: 'id, verificationResultId, taskId, type',
+      duoFlowRuns: 'id, taskId, flowRunId, flowDefinitionId, status, createdAt',
+      duoAgentInvocations: 'id, flowRunId, taskId, agentRole, stepKey, invocationStatus',
+      gitlabRepositoryActions: 'id, taskId, proposalId, actionType, status',
+      gitlabMergeRequestRecords: 'id, taskId, proposalId, mergeRequestIid',
+      gitlabPipelineRecords: 'id, taskId, proposalId, pipelineId, status'
+    }).upgrade(async tx => {
+      await tx.table('agentRuns').toCollection().modify(run => {
+        if (run.mode === 'mock') {
+          run.mode = 'live';
+        }
+      });
+
+      await tx.table('patchProposals').toCollection().modify(proposal => {
+        if (proposal.source === 'mock_code_agent') {
+          proposal.source = 'gemini_code_agent';
+        }
+      });
+    });
+
     this.version(3).stores({
       tasks: 'id, category, status, createdAt',
       agentMessages: 'id, taskId, timestamp',

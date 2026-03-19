@@ -3,11 +3,13 @@ import { Task, AgentMessage, TaskArtifact, AgentRun } from '../../types';
 
 export const taskService = {
   getAllTasks: async (): Promise<Task[]> => {
-    return await db.tasks.toArray();
+    return (await db.tasks.toArray()).sort((a, b) => b.createdAt - a.createdAt);
   },
 
   getTasksByCategory: async (category: Task['category']): Promise<Task[]> => {
-    return await db.tasks.where('category').equals(category).toArray();
+    return (await db.tasks.where('category').equals(category).toArray()).sort(
+      (a, b) => b.createdAt - a.createdAt,
+    );
   },
 
   getTaskById: async (id: string): Promise<Task | undefined> => {
@@ -44,6 +46,18 @@ export const taskService = {
     return await db.tasks.update(taskId, { status, updatedAt: Date.now() });
   },
 
+  updateTaskDiffStats: async (
+    taskId: string,
+    plusCount: number,
+    minusCount: number,
+  ): Promise<number> => {
+    return await db.tasks.update(taskId, {
+      plusCount,
+      minusCount,
+      updatedAt: Date.now(),
+    });
+  },
+
   updateTaskArtifact: async (taskId: string, type: TaskArtifact['type'], content: string): Promise<string | number> => {
     const existing = await db.taskArtifacts.where('[taskId+type]').equals([taskId, type]).first();
     if (existing) {
@@ -63,6 +77,7 @@ export const taskService = {
 };
 export * from './patchProposal.service';
 export * from './verificationComparison.service';
+export * from './verification.service';
 
 export * from './gitlabDuo.service';
 export * from './gitlabRepository.service';

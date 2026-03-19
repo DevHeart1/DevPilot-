@@ -1,6 +1,7 @@
 export interface Task {
   id: string;
   title: string;
+  prompt?: string;
   repo: string;
   branch: string;
   status: "running" | "merged" | "closed";
@@ -19,6 +20,8 @@ export interface Task {
   repoName?: string;
   repoPath?: string;
   defaultBranch?: string;
+  gitlabProjectId?: string;
+  gitlabProjectWebUrl?: string;
   candidateFiles?: string[];
   componentHints?: string[];
   relatedRoute?: string;
@@ -62,7 +65,7 @@ export interface AgentRun {
   progress: number;
   totalSteps: number;
   completedSteps: number;
-  mode: "mock" | "review" | "auto_fix";
+  mode: "live" | "review" | "auto_fix";
   lastError?: string;
   phase?: "inspection" | "code_fix" | "verification";
 }
@@ -116,7 +119,7 @@ export interface TaskMemoryHit {
 export interface PatchProposal {
   id: string;
   taskId: string;
-  source: "mock_code_agent" | "gitlab_adapter" | "hybrid";
+  source: "gemini_code_agent" | "gitlab_adapter" | "hybrid";
   status: "draft" | "ready_for_review" | "approved" | "applied" | "failed";
   title: string;
   summary: string;
@@ -135,6 +138,8 @@ export interface PatchFile {
   filePath: string;
   changeType: "update" | "create" | "delete";
   patch: string;
+  currentContent?: string;
+  nextContent?: string;
   explanation: string;
   createdAt: number;
 }

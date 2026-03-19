@@ -3,12 +3,17 @@
 
 @theme {
   --color-primary: #f48c25;
+  --color-accent-warm: #ffb15a;
   --color-background-light: #f8f7f5;
   --color-background-dark: #000000;
   --color-surface: #141414;
   --color-surface-dark: #1a1a1a;
+  --color-surface-elevated: #101113;
+  --color-surface-overlay: #191b20;
   --color-border-subtle: #262626;
   --color-border-dark: #333333;
+  --color-chip: #202227;
+  --color-focus-ring: rgba(244, 140, 37, 0.24);
   --font-display: "Inter", sans-serif;
 }
 
@@ -16,6 +21,77 @@ body {
   background-color: var(--color-background-dark);
   color: #f1f5f9;
   font-family: var(--font-display);
+}
+
+.dashboard-hero {
+  isolation: isolate;
+}
+
+.dashboard-hero::before {
+  content: "";
+  position: absolute;
+  inset: 2.5rem 8% auto;
+  height: 10rem;
+  border-radius: 9999px;
+  background:
+    radial-gradient(circle, rgba(244, 140, 37, 0.26) 0%, rgba(244, 140, 37, 0.1) 32%, transparent 72%);
+  filter: blur(48px);
+  opacity: 0.8;
+  pointer-events: none;
+  z-index: -2;
+}
+
+.dashboard-hero::after {
+  content: "";
+  position: absolute;
+  inset: 1rem 1.5rem auto;
+  height: 100%;
+  border-radius: 2rem;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0));
+  opacity: 0.7;
+  pointer-events: none;
+  z-index: -3;
+}
+
+.hero-composer-shell {
+  position: relative;
+  isolation: isolate;
+  box-shadow:
+    0 28px 70px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.hero-composer-shell::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(255, 177, 90, 0.22), rgba(255, 255, 255, 0.08) 32%, rgba(255, 255, 255, 0.02) 70%);
+  opacity: 0.55;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.hero-composer-shell::after {
+  content: "";
+  position: absolute;
+  left: 12%;
+  right: 12%;
+  bottom: -1.75rem;
+  height: 4.5rem;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(244, 140, 37, 0.22) 0%, transparent 68%);
+  filter: blur(32px);
+  opacity: 0.8;
+  pointer-events: none;
+  z-index: -2;
+}
+
+.hero-composer-shell:focus-within {
+  box-shadow:
+    0 0 0 1px rgba(244, 140, 37, 0.45),
+    0 0 0 6px var(--color-focus-ring),
+    0 28px 78px rgba(0, 0, 0, 0.58);
 }
 
 .material-symbols-outlined {

@@ -1,22 +1,33 @@
-import { getEnvVar } from '../config/env';
+import { config } from "../config/env";
+
+export interface SandboxViewport {
+  width: number;
+  height: number;
+}
+
+export interface SandboxSessionRequest {
+  id: string;
+  targetUrl: string;
+  viewport: SandboxViewport;
+}
 
 export interface SandboxSessionResponse {
   id: string;
-  status: 'initializing' | 'active' | 'closed' | 'failed';
+  status: "initializing" | "active" | "closed" | "failed";
   vncUrl: string;
   createdAt: number;
+  currentUrl: string;
+  viewportInfo: SandboxViewport;
+  consoleLogs: string[];
 }
 
 export const sandboxAdapter = {
-  getSandboxBaseUrl: () => {
-    // If not specified, default to localhost for local testing
-    return getEnvVar('VITE_SANDBOX_URL', 'http://localhost:8080');
-  },
+  getSandboxBaseUrl: () => config.sandboxUrl,
 
-  checkHealth: async (): Promise<boolean> => {
+  async checkHealth(): Promise<boolean> {
     try {
-      const response = await fetch(`${sandboxAdapter.getSandboxBaseUrl()}/api/sessions/health`, {
-        signal: AbortSignal.timeout(2000)
+      const response = await fetch(`${sandboxAdapter.getSandboxBaseUrl()}/api/health`, {
+        signal: AbortSignal.timeout(2000),
       });
       return response.ok;
     } catch {
@@ -24,70 +35,75 @@ export const sandboxAdapter = {
     }
   },
 
-  createSession: async (sessionId: string): Promise<SandboxSessionResponse> => {
+  async assertHealthy(): Promise<void> {
     const isHealthy = await sandboxAdapter.checkHealth();
     if (!isHealthy) {
-      console.warn('Sandbox service is not reachable. Falling back to mock session.');
-      return sandboxAdapter.mockCreateSession(sessionId);
+      throw new Error(
+        `Sandbox service is not reachable at ${sandboxAdapter.getSandboxBaseUrl()}.`,
+      );
     }
+  },
+
+  async createSession(request: SandboxSessionRequest): Promise<SandboxSessionResponse> {
+    await sandboxAdapter.assertHealthy();
 
     const response = await fetch(`${sandboxAdapter.getSandboxBaseUrl()}/api/sessions`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: sessionId })
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request),
     });
 
     if (!response.ok) {
       throw new Error(`Failed to create sandbox session: ${response.statusText}`);
     }
 
-    return await response.json();
+    return (await response.json()) as SandboxSessionResponse;
   },
 
-  getSession: async (sessionId: string): Promise<SandboxSessionResponse | null> => {
-    const isHealthy = await sandboxAdapter.checkHealth();
-    if (!isHealthy) {
-      return sandboxAdapter.mockCreateSession(sessionId);
+  async getSession(sessionId: string): Promise<SandboxSessionResponse | null> {
+    await sandboxAdapter.assertHealthy();
+
+    const response = await fetch(
+      `${sandboxAdapter.getSandboxBaseUrl()}/api/sessions/${sessionId}`,
+    );
+    if (response.status === 404) {
+      return null;
+    }
+    if (!response.ok) {
+      throw new Error(`Failed to get sandbox session: ${response.statusText}`);
     }
 
-    const response = await fetch(`${sandboxAdapter.getSandboxBaseUrl()}/api/sessions/${sessionId}`);
-    if (response.status === 404) return null;
-    if (!response.ok) throw new Error(`Failed to get sandbox session: ${response.statusText}`);
-
-    return await response.json();
+    return (await response.json()) as SandboxSessionResponse;
   },
 
-  captureScreenshot: async (sessionId: string): Promise<string> => {
-    const isHealthy = await sandboxAdapter.checkHealth();
-    if (!isHealthy) {
-      return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='; // Mock 1x1 transparent pixel
-    }
+  async captureScreenshot(sessionId: string): Promise<string> {
+    await sandboxAdapter.assertHealthy();
 
-    const response = await fetch(`${sandboxAdapter.getSandboxBaseUrl()}/api/sessions/${sessionId}/screenshot`);
-    if (!response.ok) throw new Error(`Failed to capture screenshot: ${response.statusText}`);
+    const response = await fetch(
+      `${sandboxAdapter.getSandboxBaseUrl()}/api/sessions/${sessionId}/screenshot`,
+    );
+    if (!response.ok) {
+      throw new Error(`Failed to capture screenshot: ${response.statusText}`);
+    }
 
     const arrayBuffer = await response.arrayBuffer();
     const base64 = btoa(
-      new Uint8Array(arrayBuffer)
-        .reduce((data, byte) => data + String.fromCharCode(byte), '')
+      new Uint8Array(arrayBuffer).reduce(
+        (data, byte) => data + String.fromCharCode(byte),
+        "",
+      ),
     );
     return `data:image/png;base64,${base64}`;
   },
 
-  closeSession: async (sessionId: string): Promise<void> => {
+  async closeSession(sessionId: string): Promise<void> {
     const isHealthy = await sandboxAdapter.checkHealth();
-    if (!isHealthy) return; // Ignore in mock mode
+    if (!isHealthy) {
+      return;
+    }
 
     await fetch(`${sandboxAdapter.getSandboxBaseUrl()}/api/sessions/${sessionId}`, {
-      method: 'DELETE'
+      method: "DELETE",
     });
   },
-
-  // Graceful fallback methods for disconnected environment
-  mockCreateSession: (sessionId: string): SandboxSessionResponse => ({
-    id: sessionId,
-    status: 'active',
-    vncUrl: '#mock-vnc-url',
-    createdAt: Date.now()
-  })
 };

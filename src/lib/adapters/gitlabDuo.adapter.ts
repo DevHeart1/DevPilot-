@@ -1,7 +1,6 @@
 import { DuoAgentRole, DuoFlowStepKey } from '../../types';
 import { gitlabDuoService } from '../services/gitlabDuo.service';
 import { runService } from '../services/run.service';
-import { config } from '../config/env';
 
 export interface AgentInvocationResult {
   success: boolean;
@@ -19,8 +18,7 @@ export const gitlabDuoAdapter = {
    * Starts or resumes a custom GitLab Duo Flow run.
    */
   async initializeFlowRun(taskId: string, flowDefinitionId: string): Promise<string> {
-    const isLive = config.liveDuoExecution;
-    const flowRunId = isLive ? `real_flow_${crypto.randomUUID().slice(0, 8)}` : `mock_run_${crypto.randomUUID().slice(0, 8)}`;
+    const flowRunId = `flow_${crypto.randomUUID().slice(0, 8)}`;
 
     return await gitlabDuoService.createOrUpdateFlowRun({
       taskId,
@@ -39,16 +37,9 @@ export const gitlabDuoAdapter = {
     agentRole: DuoAgentRole,
     contextPayload: Record<string, any> = {}
   ): Promise<AgentInvocationResult> {
-    const isLive = config.liveDuoExecution;
     const flowRun = await gitlabDuoService.getFlowRunByTaskId(taskId);
     if (!flowRun) {
         return { success: false, message: 'Flow run not found.' };
-    }
-
-    if (isLive) {
-      // Future live execution path
-      // e.g. await fetch(config.gitlabDuoApiUrl + '/agents/invoke', { ... })
-      console.log(`[LIVE DUO MODE] Invoking ${agentRole} for step ${stepKey}`);
     }
 
     // Persist local state for the agent handoff
@@ -71,8 +62,7 @@ export const gitlabDuoAdapter = {
       timestamp: Date.now()
     });
 
-    // Auto-complete the invocation record for synchronous local/mock steps
-    // (In a truly async live mode, this would be completed via a webhook or polling)
+    // Auto-complete the invocation record for synchronous local orchestration steps.
     await gitlabDuoService.completeAgentInvocation(invocationId, true);
 
     return { success: true, message: `Agent ${agentRole} successfully assigned.` };
@@ -82,11 +72,6 @@ export const gitlabDuoAdapter = {
    * Reaches an approval checkpoint in the Custom Flow where human intervention is required.
    */
   async requireApprovalCheckpoint(taskId: string, description: string): Promise<void> {
-    const isLive = config.liveDuoExecution;
-    if (isLive) {
-       console.log(`[LIVE DUO MODE] Approval checkpoint reached: ${description}`);
-       // Future real checkpoint API call
-    }
     await gitlabDuoService.updateFlowStep(taskId, "wait_for_approval", 'paused');
     await runService.createAgentEvent({
       taskId,
@@ -112,9 +97,6 @@ export const gitlabDuoAdapter = {
         flowDefinitionId: existing.flowDefinitionId,
         status
       });
-      if (config.liveDuoExecution) {
-          console.log(`[LIVE DUO MODE] Flow ${existing.flowRunId} completed with status: ${status}`);
-      }
     }
   }
 
