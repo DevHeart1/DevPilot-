@@ -17,34 +17,35 @@ const allowedOrigins = [
   "http://localhost:3000",
 ];
 
-// Permissive but secure CORS configuration
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      // Always allow if no origin (e.g. curl)
-      if (!origin) return callback(null, true);
+// Manual CORS middleware for maximum reliability
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
 
-      const isVercel = origin.endsWith(".vercel.app");
-      const isLocal = origin.includes("localhost") || origin.includes("127.0.0.1");
-      const isAllowed = allowedOrigins.includes(origin);
+  // Dynamic validation for Vercel and Localhost
+  if (origin) {
+    const isVercel = origin.endsWith(".vercel.app");
+    const isLocal = origin.includes("localhost") || origin.includes("127.0.0.1");
+    const isAllowed = allowedOrigins.includes(origin);
 
-      if (isAllowed || isVercel || isLocal) {
-        callback(null, true);
-      } else {
-        // Log rejection for debugging but don't break the middleware chain with an error object
-        console.warn(`CORS rejected for origin: ${origin}`);
-        callback(null, false);
-      }
-    },
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"],
-    maxAge: 86400, // 24 hours
-  })
-);
+    if (isAllowed || isVercel || isLocal) {
+      res.setHeader("Access-Control-Allow-Origin", origin);
+    }
+  } else {
+    // Fallback for non-browser requests
+    res.setHeader("Access-Control-Allow-Origin", "*");
+  }
 
-// Explicitly handle OPTIONS preflight for all routes
-app.options("*", cors() as any);
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, Accept");
+  res.setHeader("Access-Control-Max-Age", "86400");
+
+  // Handle preflight
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(204);
+  }
+  next();
+});
 
 // Configure http-proxy-middleware for noVNC and websockify
 // All traffic to /novnc and /websockify will be proxied to the local websockify port (6080)
