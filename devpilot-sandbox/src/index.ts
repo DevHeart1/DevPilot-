@@ -82,10 +82,17 @@ apiRouter.post("/sessions", async (req: Request, res: Response) => {
   }
 
   try {
+    console.log(`Creating session: ID=${id}, URL=${targetUrl}`);
     const session = await sessionService.createSession(id, targetUrl, viewport);
+    console.log(`Session created successfully: ${session.id}`);
     res.json(sessionService.getSerializableSession(session.id));
   } catch (error: any) {
-    res.status(500).json({ error: error.message || "Failed to create session" });
+    console.error("CRITICAL: Failed to create session");
+    console.error(error); // This will log the full stack trace in Cloud Run
+    res.status(500).json({
+      error: error.message || "Failed to create session",
+      stack: process.env.NODE_ENV === "development" ? error.stack : undefined
+    });
   }
 });
 
