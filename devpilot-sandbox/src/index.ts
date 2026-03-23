@@ -11,7 +11,28 @@ const app = express();
 const PORT = process.env.PORT || 8080;
 const WS_PORT = process.env.WS_PORT || 6080;
 
-app.use(cors());
+const allowedOrigins = [
+  "https://dev-pilot-phi.vercel.app",
+  "http://localhost:5173",
+  "http://localhost:3000",
+];
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps or curl)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === "development") {
+        callback(null, true);
+      } else {
+        callback(null, false);
+      }
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+  })
+);
 
 // Configure http-proxy-middleware for noVNC and websockify
 // All traffic to /novnc and /websockify will be proxied to the local websockify port (6080)
