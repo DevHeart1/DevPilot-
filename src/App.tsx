@@ -38,6 +38,13 @@ import {
   Task,
 } from "./types";
 
+interface UserConfig {
+  targetAppBaseUrl: string;
+  gitlabDefaultBranch: string;
+}
+
+const CONFIG_STORAGE_KEY = "devpilot_user_config";
+
 type Page =
   | "dashboard"
   | "task_detail"
@@ -1287,6 +1294,25 @@ export default function App() {
   const [isCreatingTask, setIsCreatingTask] = useState(false);
   const [dashboardError, setDashboardError] = useState<string | null>(null);
 
+  const [userConfig, setUserConfig] = useState<UserConfig>(() => {
+    const stored = localStorage.getItem(CONFIG_STORAGE_KEY);
+    if (stored) {
+      try {
+        return JSON.parse(stored);
+      } catch (e) {
+        console.error("Failed to parse user config", e);
+      }
+    }
+    return {
+      targetAppBaseUrl: config.targetAppBaseUrl,
+      gitlabDefaultBranch: config.gitlabDefaultBranch,
+    };
+  });
+
+  useEffect(() => {
+    localStorage.setItem(CONFIG_STORAGE_KEY, JSON.stringify(userConfig));
+  }, [userConfig]);
+
   const loadIntegrationState = async () => {
     setIntegrationState((current) => ({ ...current, loading: true, issues: [] }));
     await initializeDb();
@@ -1327,6 +1353,10 @@ export default function App() {
       }
     }
 
+    if (!userConfig.targetAppBaseUrl) {
+      issues.push("Target application URL is not configured. Set it in Settings.");
+    }
+
     let availableProjects: GitLabProjectSummary[] = [];
 
     if (config.isGitLabConfigured) {
@@ -1365,7 +1395,7 @@ export default function App() {
 
     setIntegrationState({
       loading: false,
-      ready: issues.length === 0 && !!project && branches.length > 0,
+      ready: issues.length === 0 && !!project && branches.length > 0 && !!userConfig.targetAppBaseUrl,
       issues,
       project,
       branches,
@@ -1432,9 +1462,7 @@ export default function App() {
   };
 
   const handleCreateTask = async (prompt: string) => {
-    if (!integrationState.ready || !integrationState.project || !selectedBranch) {
-      return;
-    }
+    if (!integrationState.ready || !integrationState.project || !selectedBranch) return;
 
     setDashboardError(null);
     setIsCreatingTask(true);
@@ -1445,14 +1473,17 @@ export default function App() {
       prompt.length > 88 ? `${prompt.slice(0, 85).trim()}...` : prompt.trim();
 
     try {
-      await taskService.createTask({
+      // 1. Create initial task
+      const task = await taskService.createTask({
         id: taskId,
-        title,
+        title: prompt.slice(0, 50) + (prompt.length > 50 ? "..." : ""),
         prompt: prompt.trim(),
         repo: integrationState.project.pathWithNamespace,
         repoName: integrationState.project.name,
         repoPath: integrationState.project.pathWithNamespace,
         branch: selectedBranch,
+        baseBranch: selectedBranch,
+        targetBranch: userConfig.gitlabDefaultBranch,
         defaultBranch: integrationState.project.defaultBranch,
         gitlabProjectId: String(integrationState.project.id),
         gitlabProjectWebUrl: integrationState.project.webUrl,
@@ -1462,7 +1493,7 @@ export default function App() {
         updatedAt: now,
         plusCount: 0,
         minusCount: 0,
-        targetUrl: config.targetAppBaseUrl,
+        targetUrl: userConfig.targetAppBaseUrl,
         viewportPreset: "desktop",
         inspectionStatus: "idle",
         codeFixStatus: "idle",
@@ -1539,7 +1570,13 @@ export default function App() {
   }
 
   if (currentPage === "settings") {
-    return <Settings onBack={() => navigate("dashboard")} />;
+    return (
+      <Settings
+        onBack={() => navigate("dashboard")}
+        userConfig={userConfig}
+        onUpdateConfig={setUserConfig}
+      />
+    );
   }
 
   if (currentPage === "privacy") {

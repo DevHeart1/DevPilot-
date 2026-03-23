@@ -1,15 +1,44 @@
 import React, { useState } from 'react';
 
-export const Settings = ({ onBack }: { onBack: () => void }) => {
+interface UserConfig {
+  targetAppBaseUrl: string;
+  gitlabDefaultBranch: string;
+}
+
+export const Settings = ({
+  onBack,
+  userConfig,
+  onUpdateConfig
+}: {
+  onBack: () => void;
+  userConfig: UserConfig;
+  onUpdateConfig: (config: UserConfig) => void;
+}) => {
   const [activeTab, setActiveTab] = useState('profile');
   const [isSaved, setIsSaved] = useState(false);
+  const [tempConfig, setTempConfig] = useState(userConfig);
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
+    onUpdateConfig(tempConfig);
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 3000);
   };
-  
+
+  const handleReset = () => {
+    // In a real app, these would come from an originalEnv object or similar.
+    // For now, we just clear localStorage and let App.tsx re-initialize from config.
+    // However, since we're in-flight, we'll just set it to the initial defaults.
+    const defaults = {
+      targetAppBaseUrl: "http://localhost:3000",
+      gitlabDefaultBranch: "main"
+    };
+    setTempConfig(defaults);
+    onUpdateConfig(defaults);
+    setIsSaved(true);
+    setTimeout(() => setIsSaved(false), 3000);
+  };
+
   return (
     <div className="min-h-screen bg-background-dark text-slate-100 font-display">
       <header className="flex items-center px-6 py-4 border-b border-border-subtle bg-background-dark/50 sticky top-0 z-50">
@@ -34,7 +63,7 @@ export const Settings = ({ onBack }: { onBack: () => void }) => {
               <div>
                 <h3 className="text-xl font-bold text-white mb-1">Public Profile</h3>
                 <p className="text-sm text-slate-400 mb-8">This information will be displayed publicly so be careful what you share.</p>
-                
+
                 <form onSubmit={handleSave} className="space-y-8">
                   <div>
                     <label className="block text-sm font-medium text-slate-300 mb-4">Avatar</label>
@@ -46,7 +75,7 @@ export const Settings = ({ onBack }: { onBack: () => void }) => {
                       </div>
                     </div>
                   </div>
-                  
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                       <label className="block text-sm font-medium text-slate-300 mb-2">First Name</label>
@@ -57,13 +86,13 @@ export const Settings = ({ onBack }: { onBack: () => void }) => {
                       <input required type="text" defaultValue="Developer" className="w-full bg-surface-dark border border-border-subtle rounded-lg py-2.5 px-3 text-sm text-white focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all" />
                     </div>
                   </div>
-                  
+
                   <div>
                     <label className="block text-sm font-medium text-slate-300 mb-2">Bio</label>
                     <textarea rows={4} defaultValue="Building the future of automated development." className="w-full bg-surface-dark border border-border-subtle rounded-lg py-2.5 px-3 text-sm text-white focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all"></textarea>
                     <p className="text-xs text-slate-500 mt-2">Brief description for your profile. URLs are hyperlinked.</p>
                   </div>
-                  
+
                   <div className="pt-6 border-t border-border-subtle flex items-center justify-between">
                     {isSaved ? (
                       <span className="text-emerald-500 text-sm font-medium flex items-center gap-1">
@@ -83,7 +112,7 @@ export const Settings = ({ onBack }: { onBack: () => void }) => {
               <div>
                 <h3 className="text-xl font-bold text-white mb-1">Email Notifications</h3>
                 <p className="text-sm text-slate-400 mb-8">Choose what updates you want to receive via email.</p>
-                
+
                 <div className="space-y-4">
                   {[
                     { title: 'Task Completed', desc: 'Get notified when an automated task finishes execution.', defaultChecked: true },
@@ -112,7 +141,7 @@ export const Settings = ({ onBack }: { onBack: () => void }) => {
               <div>
                 <h3 className="text-xl font-bold text-white mb-1">Account Security</h3>
                 <p className="text-sm text-slate-400 mb-8">Manage your password and 2FA settings.</p>
-                
+
                 <div className="p-5 rounded-xl border border-border-subtle bg-surface/30 flex items-center justify-between mb-12">
                   <div>
                     <h4 className="text-sm font-semibold text-white">Two-factor Authentication</h4>
@@ -123,7 +152,7 @@ export const Settings = ({ onBack }: { onBack: () => void }) => {
 
                 <h3 className="text-xl font-bold text-rose-500 mb-1">Danger Zone</h3>
                 <p className="text-sm text-slate-400 mb-6">Irreversible actions for your account.</p>
-                
+
                 <div className="p-6 rounded-xl border border-rose-500/30 bg-rose-500/5">
                   <h4 className="text-base font-semibold text-rose-500">Delete Account</h4>
                   <p className="text-sm text-slate-400 mt-2 mb-6">Once you delete your account, there is no going back. All your automated tasks, logs, and settings will be permanently removed.</p>
@@ -134,12 +163,66 @@ export const Settings = ({ onBack }: { onBack: () => void }) => {
           )}
 
           {activeTab === 'integrations' && (
-            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div>
+                <h3 className="text-xl font-bold text-white mb-1">Project Runtime</h3>
+                <p className="text-sm text-slate-400 mb-8">Configure your application details and repository defaults.</p>
+
+                <form onSubmit={handleSave} className="space-y-6">
+                  <div className="p-6 rounded-2xl border border-border-subtle bg-surface/30 space-y-6">
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-300 mb-2">Target Application URL</label>
+                      <input
+                        type="url"
+                        value={tempConfig.targetAppBaseUrl}
+                        onChange={(e) => setTempConfig({ ...tempConfig, targetAppBaseUrl: e.target.value })}
+                        placeholder="http://localhost:3000"
+                        className="w-full bg-surface-dark border border-border-subtle rounded-lg py-2.5 px-3 text-sm text-white focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all font-mono"
+                      />
+                      <p className="text-xs text-slate-500 mt-2">The base URL of the app DevPilot will interact with.</p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-300 mb-2">GitLab Default Branch</label>
+                      <input
+                        type="text"
+                        value={tempConfig.gitlabDefaultBranch}
+                        onChange={(e) => setTempConfig({ ...tempConfig, gitlabDefaultBranch: e.target.value })}
+                        placeholder="main"
+                        className="w-full bg-surface-dark border border-border-subtle rounded-lg py-2.5 px-3 text-sm text-white focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all font-mono"
+                      />
+                      <p className="text-xs text-slate-500 mt-2">Fallback branch used for listing files and creating MRs.</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={handleReset}
+                      className="text-sm font-medium text-slate-500 hover:text-slate-300 transition-colors"
+                    >
+                      Reset to Defaults
+                    </button>
+                    <div className="flex items-center gap-4">
+                      {isSaved && (
+                        <span className="text-emerald-500 text-sm font-medium flex items-center gap-1">
+                          <span className="material-symbols-outlined text-sm">check_circle</span>
+                          Saved
+                        </span>
+                      )}
+                      <button type="submit" className="px-6 py-2.5 bg-primary text-background-dark font-bold rounded-lg hover:bg-primary/90 transition-colors">
+                        Save Runtime Config
+                      </button>
+                    </div>
+                  </div>
+                </form>
+              </div>
+
               <div>
                 <h3 className="text-xl font-bold text-white mb-1">Connected Apps</h3>
                 <p className="text-sm text-slate-400 mb-8">Manage services connected to your DevPilot account.</p>
-                
-                <div className="space-y-4">
+
+                <div className="space-y-4 opacity-50 pointer-events-none">
                   <div className="flex items-center justify-between p-5 rounded-xl border border-border-subtle bg-surface/30">
                     <div className="flex items-center gap-4">
                       <div className="w-10 h-10 rounded bg-white flex items-center justify-center">
@@ -150,33 +233,20 @@ export const Settings = ({ onBack }: { onBack: () => void }) => {
                         <p className="text-xs text-slate-400 mt-0.5">Connected as @alexdev</p>
                       </div>
                     </div>
-                    <button className="px-4 py-2 text-sm font-medium text-slate-400 hover:text-rose-500 transition-colors">Disconnect</button>
+                    <button className="px-4 py-2 text-sm font-medium text-slate-400">Disconnect</button>
                   </div>
 
                   <div className="flex items-center justify-between p-5 rounded-xl border border-border-subtle bg-surface/30">
                     <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded bg-[#0052CC] flex items-center justify-center text-white font-bold text-xl">
-                        J
+                      <div className="w-10 h-10 rounded bg-[#E50914] flex items-center justify-center text-white font-bold text-xl">
+                        G
                       </div>
                       <div>
-                        <h4 className="text-sm font-semibold text-white">Jira</h4>
-                        <p className="text-xs text-slate-400 mt-0.5">Not connected</p>
+                        <h4 className="text-sm font-semibold text-white">GitLab</h4>
+                        <p className="text-xs text-slate-400 mt-0.5">Active via Token</p>
                       </div>
                     </div>
-                    <button className="px-4 py-2 bg-surface-dark border border-border-subtle rounded-lg text-sm font-medium hover:bg-white/5 transition-colors">Connect</button>
-                  </div>
-
-                  <div className="flex items-center justify-between p-5 rounded-xl border border-border-subtle bg-surface/30">
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded bg-[#E53935] flex items-center justify-center text-white font-bold text-xl">
-                        S
-                      </div>
-                      <div>
-                        <h4 className="text-sm font-semibold text-white">Slack</h4>
-                        <p className="text-xs text-slate-400 mt-0.5">Not connected</p>
-                      </div>
-                    </div>
-                    <button className="px-4 py-2 bg-surface-dark border border-border-subtle rounded-lg text-sm font-medium hover:bg-white/5 transition-colors">Connect</button>
+                    <button className="px-4 py-2 bg-surface-dark border border-border-subtle rounded-lg text-sm font-medium">Configured</button>
                   </div>
                 </div>
               </div>

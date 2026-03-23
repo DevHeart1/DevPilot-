@@ -25,6 +25,8 @@ export interface Task {
   candidateFiles?: string[];
   componentHints?: string[];
   relatedRoute?: string;
+  baseBranch?: string;
+  targetBranch?: string;
 }
 
 export interface AgentMessage {
