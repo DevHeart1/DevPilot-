@@ -43,8 +43,8 @@ app.use((req, res, next) => {
   next();
 });
 
-// Configure http-proxy-middleware for noVNC and websockify
-// All traffic to /novnc and /websockify will be proxied to the local websockify port (6080)
+// Configure http-proxy-middleware for KasmVNC web client and websockets
+// Traffic to /vnc and its websockets will be proxied to the KasmVNC port (6080)
 const proxyOptions = {
   target: `http://localhost:${WS_PORT}`,
   ws: true,
@@ -52,12 +52,11 @@ const proxyOptions = {
   logLevel: "debug" as const,
 };
 
-// Proxy noVNC static assets
-app.use('/novnc', createProxyMiddleware({
+// Proxy KasmVNC static assets and websockets
+app.use('/vnc', createProxyMiddleware({
   ...proxyOptions,
-  pathRewrite: { '^/novnc': '' }
+  pathRewrite: { '^/vnc': '' }
 }));
-app.use('/websockify', createProxyMiddleware(proxyOptions));
 
 // Root path for simple status check
 app.get("/", (_req: Request, res: Response) => {

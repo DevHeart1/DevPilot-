@@ -453,7 +453,7 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
                                         </div>
                                     </div>
                                     <iframe
-                                        src={`${config.sandboxUrl}/novnc/vnc.html?autoconnect=true&resize=scale&reconnect=true&path=websockify&logging=warn`}
+                                        src={`${config.sandboxUrl}/vnc/index.html?autoconnect=true&resize=remote`}
                                         className="flex-1 w-full h-full min-h-0 border-none"
                                         style={{ minHeight: 0 }}
                                         title="Sandbox Live View"

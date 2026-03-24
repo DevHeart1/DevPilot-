@@ -7,11 +7,11 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 # Install system dependencies for the GUI stack
 RUN apt-get update && apt-get install -y \
-    xvfb \
     fluxbox \
-    x11vnc \
-    websockify \
-    novnc \
+    wget \
+    && wget https://github.com/kasmtech/KasmVNC/releases/download/v1.3.3/kasmvncserver_focal_1.3.3_amd64.deb \
+    && apt-get install -y ./kasmvncserver_focal_1.3.3_amd64.deb \
+    && rm -f kasmvncserver_focal_1.3.3_amd64.deb \
     && rm -rf /var/lib/apt/lists/*
 
 # Set the working directory

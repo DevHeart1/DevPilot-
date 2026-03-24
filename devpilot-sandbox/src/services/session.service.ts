@@ -24,7 +24,7 @@ export class SessionService {
 
   constructor() {
     if (!process.env.DISPLAY) {
-      process.env.DISPLAY = ":99";
+      process.env.DISPLAY = ":1";
     }
   }
 
@@ -40,7 +40,7 @@ export class SessionService {
     return {
       id: session.id,
       status: session.status,
-      vncUrl: `/novnc/vnc.html?path=websockify&autoconnect=true&resize=remote`,
+      vncUrl: `/vnc/index.html?autoconnect=true&resize=remote`,
       createdAt: session.createdAt,
       currentUrl: session.currentUrl,
       viewportInfo: session.viewportInfo,
