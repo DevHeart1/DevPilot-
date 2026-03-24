@@ -17,7 +17,7 @@ export interface SandboxSession {
   consoleLogs: string[];
 }
 
-const DEFAULT_VIEWPORT: SandboxViewport = { width: 1280, height: 800 };
+const DEFAULT_VIEWPORT: SandboxViewport = { width: 1440, height: 950 };
 
 export class SessionService {
   private activeSession: SandboxSession | null = null;

@@ -12,6 +12,7 @@ import {
     memoryService,
     runService,
 } from "../../lib/services";
+import { PatchDiff } from "./PatchDiff";
 import { runUiInspectionWorkflow } from "../../lib/workflows/uiInspection.workflow";
 import { runVerificationPreparationWorkflow } from "../../lib/workflows/verificationPreparation.workflow";
 import {
@@ -250,10 +251,39 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
     const viewportLabel = task.viewportPreset === "mobile" ? "375x812" : task.viewportPreset === "tablet" ? "768x1024" : "1280x800";
     const projectOptions = projects.length > 0 ? projects : [task.repo];
     const branchOptions = Array.from(new Set([task.branch, task.defaultBranch, ...branches].filter(Boolean)));
-    const diffContent = patchFiles && patchFiles.length > 0 ? patchFiles.map(f => f.patch).join("\n\n") : diffArtifact?.content;
     const browserSummary = verificationResult?.summary || parsedVerification?.summary || parsedVision?.summary || "Waiting for live inspection evidence.";
     const browserDetail = verificationResult?.explanation || parsedVerification?.explanation || parsedVision?.explanation || "The browser pane will show real screenshots and analysis.";
-    const activeCodeArtifact = codeTab === "diff" ? diffContent : codeTab === "log" ? logArtifact?.content : codeTab === "terminal" ? terminalArtifact?.content : undefined;
+
+    // Determine active code view
+    let codeView: React.ReactNode;
+    if (codeTab === "diff") {
+        if (patchFiles && patchFiles.length > 0) {
+            codeView = (
+                <div className="space-y-2">
+                    {patchFiles.map((file) => (
+                        <PatchDiff key={file.id} filePath={file.filePath} patch={file.patch} />
+                    ))}
+                </div>
+            );
+        } else if (diffArtifact?.content) {
+            codeView = <pre className="whitespace-pre overflow-auto">{diffArtifact.content}</pre>;
+        } else {
+            codeView = <div className="text-slate-500 italic">No patch generated yet.</div>;
+        }
+    } else if (codeTab === "log") {
+        codeView = <pre className="whitespace-pre overflow-auto">{logArtifact?.content || "No logs available."}</pre>;
+    } else if (codeTab === "terminal") {
+        codeView = <pre className="whitespace-pre overflow-auto">{terminalArtifact?.content || "No terminal output."}</pre>;
+    } else if (codeTab === "vision_analysis") {
+        codeView = (
+            <div className="space-y-4">
+                <div className="font-bold text-primary">UI Analysis Result:</div>
+                <div className="bg-surface-dark border border-border-dark p-4 rounded-lg">
+                    {visionArtifact?.content || "Waiting for analysis..."}
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="flex h-screen flex-col overflow-hidden bg-background-dark font-display text-slate-100 selection:bg-primary/30">
@@ -336,25 +366,53 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
                             ))}
                         </div>
                     )}
-                    <AdvancedChatInput
-                        onSendMessage={handleChatSubmit}
-                        projects={projectOptions}
-                        branches={branchOptions}
-                        fileSuggestions={task.candidateFiles || []}
-                        disabled={!task}
-                        placeholder="Add follow-up instructions..."
-                    />
+                    <div className="mt-auto pb-4">
+                        <AdvancedChatInput
+                            onSendMessage={handleChatSubmit}
+                            projects={projectOptions}
+                            branches={branchOptions}
+                            fileSuggestions={task.candidateFiles || []}
+                            disabled={!task}
+                            placeholder="Add follow-up instructions..."
+                        />
+                    </div>
                 </aside>
 
                 <div className="flex flex-1 flex-col overflow-hidden md:flex-row">
-                    <section className={`flex flex-col border-r border-border-dark bg-[#1c140c] transition-all duration-300 ${isBrowserOpen ? "flex-[1.5]" : "w-12 flex-none"}`}>
-                        <div className="flex-1 overflow-auto p-8 bg-background-dark">
-                            {screenshotSrc ? <img src={screenshotSrc} className="w-full rounded-2xl shadow-2xl" /> : <div className="text-slate-500 text-center py-20">Waiting for browser...</div>}
+                    <section className={`flex flex-col border-r border-border-dark bg-[#0a0a0a] transition-all duration-300 ${isBrowserOpen ? "flex-[2]" : "w-12 flex-none"}`}>
+                        <div className="flex-1 relative overflow-hidden bg-background-dark group">
+                            {task.status === "running" ? (
+                                <div className="absolute inset-0 flex flex-col">
+                                    <div className="bg-surface-dark border-b border-border-dark px-4 py-1.5 flex items-center justify-between">
+                                        <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500 uppercase tracking-tighter">
+                                            <span className="flex h-2 w-2 relative">
+                                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75"></span>
+                                                <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500"></span>
+                                            </span>
+                                            Live Sandbox Stream (noVNC)
+                                        </div>
+                                        <div className="text-[10px] text-slate-600 font-mono">1440x950</div>
+                                    </div>
+                                    <iframe
+                                        src={`${config.sandboxUrl}/vnc.html?autoconnect=true&resize=scale&reconnect=true&logging=warn`}
+                                        className="flex-1 w-full border-none"
+                                        title="Sandbox Live View"
+                                    />
+                                </div>
+                            ) : (
+                                <div className="flex-1 overflow-auto p-4 flex items-center justify-center">
+                                    {screenshotSrc ? (
+                                        <img src={screenshotSrc} className="max-w-full rounded-xl shadow-2xl border border-border-dark" />
+                                    ) : (
+                                        <div className="text-slate-500 text-center py-20 font-mono text-xs uppercase tracking-widest">Awaiting Browser Session</div>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     </section>
-                    <section className={`flex flex-col border-t border-border-dark bg-background-dark transition-all duration-300 ${isCodeOpen ? "flex-1" : "h-12 w-12 flex-none"}`}>
-                        <div className="flex-1 overflow-auto p-4 font-mono text-xs text-slate-300">
-                            {activeCodeArtifact || "No output yet."}
+                    <section className={`flex flex-col border-t border-border-dark bg-[#0d0d0d] transition-all duration-300 ${isCodeOpen ? "flex-1" : "h-12 w-12 flex-none"}`}>
+                        <div className="flex-1 overflow-auto p-6 font-mono text-xs text-slate-300 custom-scrollbar">
+                            {codeView || <div className="text-slate-500 uppercase tracking-widest text-[10px] text-center mt-20">Initializing Code Workspace...</div>}
                         </div>
                     </section>
                 </div>

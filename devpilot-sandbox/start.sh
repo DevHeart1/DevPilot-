@@ -12,7 +12,7 @@ echo "Starting DevPilot Sandbox Service..."
 # 1. Start Xvfb
 # Screen 0 is set to 1280x800 with 24-bit color depth
 echo "Starting Xvfb on DISPLAY=$DISPLAY..."
-Xvfb $DISPLAY -screen 0 1280x800x24 &
+Xvfb $DISPLAY -screen 0 1440x950x24 &
 sleep 2
 
 # 2. Start Window Manager (Optional but helpful for rendering some elements)
