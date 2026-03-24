@@ -13,10 +13,15 @@ RUN apt-get update && apt-get install -y \
     libxkbfile1 \
     libjpeg-turbo8 \
     x11-xserver-utils \
+    libnss3-tools \
     && wget https://github.com/kasmtech/KasmVNC/releases/download/v1.3.3/kasmvncserver_focal_1.3.3_amd64.deb \
     && apt-get install -y ./kasmvncserver_focal_1.3.3_amd64.deb \
     && rm -f kasmvncserver_focal_1.3.3_amd64.deb \
     && rm -rf /var/lib/apt/lists/*
+
+# Pre-create KasmVNC user to bypass the interactive wizard at runtime
+RUN mkdir -p /root/.vnc && \
+    kasmvncuser -u devpilot -p devpilot -w
 
 # Set the working directory
 WORKDIR /app

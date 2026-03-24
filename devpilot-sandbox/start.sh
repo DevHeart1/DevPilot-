@@ -11,19 +11,8 @@ echo "--- DevPilot Sandbox Startup Diagnostics ---"
 echo "Current User: $(whoami)"
 echo "Environment: PORT=$PORT, DISPLAY=$DISPLAY, WS_PORT=$WS_PORT"
 
-# 1. Verify environment
-if ! command -v kasmvncserver >/dev/null 2>&1; then
-    echo "ERROR: kasmvncserver not found!"
-    exit 1
-fi
-
-# 2. Setup VNC directories and User
+# 1. Setup VNC Config (User is already created in Dockerfile)
 mkdir -p ~/.vnc
-# Create a KasmVNC user non-interactively to bypass the startup prompt
-# -u user, -p password, -w (write access)
-kasmvncuser -u devpilot -p devpilot -w || echo "User might already exist"
-
-# Generate kasmvnc.yaml 
 cat << EOF > ~/.vnc/kasmvnc.yaml
 network:
   protocol: ipv4
@@ -42,22 +31,20 @@ fluxbox &
 EOF
 chmod +x ~/.vnc/xstartup
 
-# 3. Start KasmVNC
+# 2. Start KasmVNC
 echo "Starting KasmVNC..."
 # We use nohup and redirect logs to stdout/stderr
-# -disableHttpAuth allows the Express proxy to reach it without the user/pass prompt in the browser
+# -disableHttpAuth allows the Express proxy to reach it without any prompt
+# -no-prohibit-root is sometimes needed in Docker
 nohup kasmvncserver $DISPLAY -depth 24 -geometry 1440x950 -disableHttpAuth > /tmp/kasmvnc.log 2>&1 &
 
-# 4. Give it a moment and check logs
+# 3. Give it a moment and check logs
 sleep 5
-if [ -f /tmp/kasmvnc.log ]; then
-    echo "--- KasmVNC Initial Logs ---"
-    cat /tmp/kasmvnc.log
-fi
+echo "--- KasmVNC Startup Logs ---"
+[ -f /tmp/kasmvnc.log ] && cat /tmp/kasmvnc.log
 
-# 5. Start Node.js API server
+# 4. Start Node.js API server
 echo "Starting Node.js server on port $PORT..."
-# Tailing logs in background so they appear in Cloud Run stream
 tail -f /tmp/kasmvnc.log &
 
 # Final process
