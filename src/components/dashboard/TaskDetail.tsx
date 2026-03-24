@@ -420,9 +420,9 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
                     </div>
                 </aside>
 
-                <div className="flex flex-1 flex-col overflow-hidden md:flex-row">
-                    <section className={`flex flex-col border-r border-border-dark bg-[#0a0a0a] transition-all duration-300 ${isBrowserOpen ? "flex-[2]" : "w-12 flex-none"}`}>
-                        <div className="flex-1 relative overflow-hidden bg-background-dark group">
+                <div className="flex flex-1 flex-col overflow-hidden md:flex-row min-h-0">
+                    <section className={`flex flex-col border-r border-border-dark bg-[#0a0a0a] transition-all duration-300 min-h-0 min-w-0 ${isBrowserOpen ? "flex-[2]" : "w-12 flex-none"}`}>
+                        <div className="flex-1 relative overflow-hidden bg-background-dark group min-h-0">
                             {task.status === "running" ? (
                                 <div className="absolute inset-0 flex flex-col">
                                     {/* Runtime Context Metadata Strip */}
@@ -454,12 +454,13 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
                                     </div>
                                     <iframe
                                         src={`${config.sandboxUrl}/novnc/vnc.html?autoconnect=true&resize=scale&reconnect=true&path=websockify&logging=warn`}
-                                        className="flex-1 w-full border-none"
+                                        className="flex-1 w-full h-full min-h-0 border-none"
+                                        style={{ minHeight: 0 }}
                                         title="Sandbox Live View"
                                     />
                                 </div>
                             ) : (
-                                <div className="flex-1 flex flex-col">
+                                <div className="flex-1 flex flex-col min-h-0">
                                     {/* Captured Frame Metadata Strip */}
                                     <div className="bg-[#111111] border-b border-border-dark px-4 py-2 flex items-center justify-between shadow-sm z-10 w-full shrink-0">
                                         <div className="flex items-center gap-3">
@@ -498,7 +499,7 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
                             )}
                         </div>
                     </section>
-                    <section className={`flex flex-col border-t border-border-dark bg-[#0d0d0d] transition-all duration-300 ${isCodeOpen ? "flex-1" : "h-12 w-12 flex-none"}`}>
+                    <section className={`flex flex-col border-t border-border-dark bg-[#0d0d0d] transition-all duration-300 min-h-0 min-w-0 ${isCodeOpen ? "flex-1" : "h-12 w-12 flex-none"}`}>
                         <div className="flex-1 overflow-auto p-6 font-mono text-xs text-slate-300 custom-scrollbar">
                             {codeView || <div className="text-slate-500 uppercase tracking-widest text-[10px] text-center mt-20">Initializing Code Workspace...</div>}
                         </div>
