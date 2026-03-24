@@ -487,6 +487,46 @@ export const gitlabRepositoryAdapter = {
     }
   },
 
+  async hasCIConfig(
+    projectId?: string | number,
+    ref: string = config.gitlabDefaultBranch,
+  ): Promise<GitLabAdapterResult<boolean>> {
+    const logs: string[] = [];
+    const configError = ensureLiveCapable(logs, !projectId);
+    if (configError) {
+      return fail(configError, logs);
+    }
+
+    try {
+      logs.push(`[GITLAB] Checking for CI config on ref "${ref}"...`);
+      // GitLab default CI config file is .gitlab-ci.yml
+      // Note: Some projects might customize this in Settings > CI/CD > General pipelines > CI/CD configuration file
+      // But for now we check the standard one.
+      const { data } = await gitlabFetch<{ name: string }>(
+        p(`/repository/files/${encodeURIComponent(".gitlab-ci.yml")}?ref=${encodeURIComponent(ref)}`, projectId),
+        { method: "HEAD" }
+      ).catch(() => ({ data: null }));
+
+      const exists = !!data;
+      logs.push(`[GITLAB] CI config exists: ${exists}`);
+      return {
+        success: true,
+        mode: "live",
+        data: exists,
+        logs,
+      };
+    } catch (error) {
+      // If 404, it means it doesn't exist
+      logs.push(`[GITLAB] CI config check returned error or 404.`);
+      return {
+        success: true,
+        mode: "live",
+        data: false,
+        logs,
+      };
+    }
+  },
+
   async rerunPipeline(ref: string, projectId?: string | number): Promise<GitLabAdapterResult<PipelineResult>> {
     const logs: string[] = [];
     const configError = ensureLiveCapable(logs, !projectId);
@@ -515,8 +555,20 @@ export const gitlabRepositoryAdapter = {
         },
         logs,
       };
-    } catch (error) {
+    } catch (error: any) {
       const message = error instanceof Error ? error.message : String(error);
+
+      // Explicitly check for missing CI config file error
+      if (message.includes("Missing CI config file")) {
+        logs.push(`[GITLAB] Pipeline trigger skipped: Missing CI config file.`);
+        return {
+          success: false,
+          mode: "live",
+          error: "MISSING_CI_CONFIG",
+          logs,
+        };
+      }
+
       logs.push(`[GITLAB] Pipeline trigger failed: ${message}`);
       return fail(message, logs);
     }

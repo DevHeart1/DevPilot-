@@ -210,24 +210,69 @@ export async function runRepositoryMutationWorkflow(
     "running",
     "Triggering pipeline...",
   );
-  const pipelineResult = await gitlabRepositoryAdapter.rerunPipeline(
-    branchName,
-    task.gitlabProjectId
+
+  // Check if CI config exists on the default branch or current context before triggering
+  const ciCheck = await gitlabRepositoryAdapter.hasCIConfig(
+    task.gitlabProjectId,
+    task.branch || task.defaultBranch
   );
-  if (!pipelineResult.success || !pipelineResult.data) {
-    throw new Error(pipelineResult.error || "Failed to trigger the pipeline.");
+
+  let pipelineResult;
+  if (ciCheck.success && ciCheck.data === false) {
+    // Graceful skip
+    await taskService.appendAgentMessage({
+      taskId,
+      sender: "system",
+      content: "Verification pipeline skipped: Missing `.gitlab-ci.yml` configuration in this repository.",
+      kind: "warning",
+      timestamp: Date.now(),
+    });
+
+    // Create a dummy successful result for the workflow to continue
+    pipelineResult = {
+      success: true,
+      mode: "live" as const,
+      data: {
+        pipelineId: 0,
+        webUrl: mrResult.data.webUrl, // Link to MR instead
+        status: "skipped",
+      },
+    };
+  } else {
+    pipelineResult = await gitlabRepositoryAdapter.rerunPipeline(
+      branchName,
+      task.gitlabProjectId
+    );
   }
 
-  await gitlabRepositoryService.createPipelineRecord({
-    taskId,
-    proposalId,
-    pipelineId: pipelineResult.data.pipelineId,
-    status: pipelineResult.data.status as import("../../types").GitLabPipelineStatus,
-    webUrl: pipelineResult.data.webUrl,
-    ref: branchName,
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  });
+  if (!pipelineResult.success || !pipelineResult.data) {
+    if (pipelineResult.error === "MISSING_CI_CONFIG") {
+      await taskService.appendAgentMessage({
+        taskId,
+        sender: "system",
+        content: "Verification pipeline skipped: GitLab reported a missing CI configuration file.",
+        kind: "warning",
+        timestamp: Date.now(),
+      });
+      // Continue anyway
+      pipelineResult.data = { pipelineId: 0, webUrl: mrResult.data.webUrl, status: "skipped" };
+    } else {
+      throw new Error(pipelineResult.error || "Failed to trigger the pipeline.");
+    }
+  }
+
+  if (pipelineResult.data.pipelineId > 0) {
+    await gitlabRepositoryService.createPipelineRecord({
+      taskId,
+      proposalId,
+      pipelineId: pipelineResult.data.pipelineId,
+      status: pipelineResult.data.status as import("../../types").GitLabPipelineStatus,
+      webUrl: pipelineResult.data.webUrl,
+      ref: branchName,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+  }
   await gitlabRepositoryService.createRepositoryAction({
     taskId,
     proposalId,
@@ -241,7 +286,10 @@ export async function runRepositoryMutationWorkflow(
     updatedAt: Date.now(),
     completedAt: Date.now(),
   });
-  await completeStep(3, `Pipeline triggered: #${pipelineResult.data.pipelineId}`);
+  const pipeLabel = pipelineResult.data.pipelineId > 0
+    ? `#${pipelineResult.data.pipelineId}`
+    : "Skipped (No CI Config)";
+  await completeStep(3, `Pipeline status: ${pipeLabel}`);
 
   await taskService.updateTask(taskId, {
     codeFixStatus: "applied",
