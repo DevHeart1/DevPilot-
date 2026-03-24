@@ -11,6 +11,22 @@ const app = express();
 const PORT = process.env.PORT || 8080;
 const WS_PORT = process.env.WS_PORT || 6080;
 
+// Startup Diagnostics
+console.log("--- STARTUP DIAGNOSTICS ---");
+console.log(`Node Version: ${process.version}`);
+console.log(`CWD: ${process.cwd()}`);
+console.log(`Port: ${PORT}, WS_Port: ${WS_PORT}`);
+console.log(`Display: ${process.env.DISPLAY}`);
+console.log(`User: ${process.env.USER || 'unknown'} (UID: ${process.getuid?.()})`);
+
+import { execSync } from "child_process";
+try {
+  const chromiumPath = execSync("which google-chrome || which chromium-browser || which chromium", { encoding: 'utf8' }).trim();
+  console.log(`Chromium path: ${chromiumPath}`);
+} catch (e) {
+  console.log("Chromium binary not found in PATH via 'which'");
+}
+
 const allowedOrigins = [
   "https://dev-pilot-phi.vercel.app",
   "http://localhost:5173",

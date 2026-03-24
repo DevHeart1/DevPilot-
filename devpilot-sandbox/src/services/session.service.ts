@@ -69,6 +69,9 @@ export class SessionService {
     };
 
     try {
+      console.log(`Launching chromium on display ${process.env.DISPLAY}...`);
+      console.log(`Viewport: ${viewport.width}x${viewport.height}`);
+
       const browser = await chromium.launch({
         headless: false,
         args: [
@@ -81,6 +84,7 @@ export class SessionService {
           "--start-maximized",
         ],
       });
+      console.log("Browser launched successfully");
 
       const context = await browser.newContext({
         viewport,
