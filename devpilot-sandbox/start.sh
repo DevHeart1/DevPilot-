@@ -17,13 +17,13 @@ if ! command -v kasmvncserver >/dev/null 2>&1; then
     exit 1
 fi
 
-# 2. Setup VNC directories
+# 2. Setup VNC directories and User
 mkdir -p ~/.vnc
-echo -e "devpilot\ndevpilot\nn\n" | vncpasswd -f > ~/.vnc/passwd
-chmod 600 ~/.vnc/passwd
+# Create a KasmVNC user non-interactively to bypass the startup prompt
+# -u user, -p password, -w (write access)
+kasmvncuser -u devpilot -p devpilot -w || echo "User might already exist"
 
 # Generate kasmvnc.yaml 
-# We explicitly allow the 'root' user if needed, though KasmVNC prefers non-root
 cat << EOF > ~/.vnc/kasmvnc.yaml
 network:
   protocol: ipv4
@@ -44,12 +44,12 @@ chmod +x ~/.vnc/xstartup
 
 # 3. Start KasmVNC
 echo "Starting KasmVNC..."
-# -disableHttpAuth for simple proxying
-# -depth 24 for standard colors
+# We use nohup and redirect logs to stdout/stderr
+# -disableHttpAuth allows the Express proxy to reach it without the user/pass prompt in the browser
 nohup kasmvncserver $DISPLAY -depth 24 -geometry 1440x950 -disableHttpAuth > /tmp/kasmvnc.log 2>&1 &
 
 # 4. Give it a moment and check logs
-sleep 3
+sleep 5
 if [ -f /tmp/kasmvnc.log ]; then
     echo "--- KasmVNC Initial Logs ---"
     cat /tmp/kasmvnc.log
