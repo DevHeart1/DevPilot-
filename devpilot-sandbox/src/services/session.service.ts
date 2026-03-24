@@ -70,20 +70,27 @@ export class SessionService {
 
     try {
       const browser = await chromium.launch({
-        headless: false,
+        headless: true, // Changed to true
         args: [
           "--no-sandbox",
           "--disable-setuid-sandbox",
           "--disable-dev-shm-usage",
           "--disable-gpu",
-          "--window-position=0,0",
-          `--window-size=${viewport.width},${viewport.height}`,
-          "--start-maximized",
+          // Removed: "--window-position=0,0",
+          // Removed: `--window-size=${viewport.width},${viewport.height}`,
+          // Removed: "--start-maximized",
+          // Added new args for headless optimization
+          '--disable-extensions',
+          '--disable-background-networking',
+          '--disable-background-timer-throttling',
+          '--disable-backgrounding-occluded-windows',
+          '--disable-renderer-backgrounding'
         ],
       });
 
       const context = await browser.newContext({
-        viewport,
+        viewport: { width: 1280, height: 800 }, // Changed viewport and added deviceScaleFactor
+        deviceScaleFactor: 1,
         userAgent: "DevPilot Sandbox Browser/1.0",
         locale: "en-US",
       });
@@ -99,7 +106,7 @@ export class SessionService {
         );
       });
 
-      await page.goto(targetUrl, { waitUntil: "networkidle" });
+      await page.goto('about:blank'); // Changed targetUrl to 'about:blank'
 
       this.activeSession.browser = browser;
       this.activeSession.context = context;
