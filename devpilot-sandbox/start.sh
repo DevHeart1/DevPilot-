@@ -6,13 +6,37 @@ export PORT="${PORT:-8080}"
 export DISPLAY="${DISPLAY:-:1}"
 export WS_PORT="${WS_PORT:-6080}"
 export HOME=/root
+export PATH="$PATH:/usr/share/kasmvnc/bin"
 
 echo "--- DevPilot Sandbox Startup Diagnostics ---"
 echo "Current User: $(whoami)"
 echo "Environment: PORT=$PORT, DISPLAY=$DISPLAY, WS_PORT=$WS_PORT"
 
-# 1. Setup VNC Config (User is already created in Dockerfile)
+# 1. Setup VNC Config
 mkdir -p ~/.vnc
+
+# Try to create user non-interactively
+# Different versions of KasmVNC store kasmvncuser in different places
+if command -v kasmvncuser >/dev/null 2>&1; then
+    kasmvncuser -u devpilot -p devpilot -w || echo "User creation failed but continuing..."
+elif [ -f "/usr/share/kasmvnc/bin/kasmvncuser" ]; then
+    /usr/share/kasmvnc/bin/kasmvncuser -u devpilot -p devpilot -w
+else
+    echo "kasmvncuser not found. Attempting to bypass wizard via pipe..."
+    # If the server starts and asks for user (selection 1), give it username and password
+    # This is a bit of a hack for the perl-based wizard
+    printf "1\ndevpilot\ndevpilot\n" | kasmvncserver $DISPLAY -depth 24 -geometry 1440x950 -disableHttpAuth &
+    SERVER_PID=$!
+    sleep 5
+fi
+
+# If server not started via pipe hack, start it normally
+if [ -z "$SERVER_PID" ] || ! ps -p $SERVER_PID > /dev/null; then
+    echo "Starting KasmVNC normally..."
+    nohup kasmvncserver $DISPLAY -depth 24 -geometry 1440x950 -disableHttpAuth > /tmp/kasmvnc.log 2>&1 &
+fi
+
+# Generate kasmvnc.yaml for other settings
 cat << EOF > ~/.vnc/kasmvnc.yaml
 network:
   protocol: ipv4
@@ -31,19 +55,12 @@ fluxbox &
 EOF
 chmod +x ~/.vnc/xstartup
 
-# 2. Start KasmVNC
-echo "Starting KasmVNC..."
-# We use nohup and redirect logs to stdout/stderr
-# -disableHttpAuth allows the Express proxy to reach it without any prompt
-# -no-prohibit-root is sometimes needed in Docker
-nohup kasmvncserver $DISPLAY -depth 24 -geometry 1440x950 -disableHttpAuth > /tmp/kasmvnc.log 2>&1 &
-
-# 3. Give it a moment and check logs
+# 2. Wait and check
 sleep 5
 echo "--- KasmVNC Startup Logs ---"
 [ -f /tmp/kasmvnc.log ] && cat /tmp/kasmvnc.log
 
-# 4. Start Node.js API server
+# 3. Start Node.js API server
 echo "Starting Node.js server on port $PORT..."
 tail -f /tmp/kasmvnc.log &
 
