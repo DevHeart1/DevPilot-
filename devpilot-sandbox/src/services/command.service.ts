@@ -46,14 +46,21 @@ export class CommandService {
         if (command === "npm install" || command === "npm ci") {
             if (packageManager === "npm") {
                 const hasLock = fs.existsSync(path.join(finalCwd, "package-lock.json"));
-                finalCommand = hasLock ? "npm ci" : "npm install";
+                finalCommand = hasLock ? "npm ci --include=dev" : "npm install --include=dev";
             } else {
                 finalCommand = `${packageManager} install`;
             }
             console.log(`[INTELLIGENCE] Swapped to: ${finalCommand}`);
         } else if (command.startsWith("npm ") && packageManager !== "npm") {
             finalCommand = command.replace("npm ", `${packageManager} `);
-            console.log(`[INTELLIGENCE] Swapping 'npm' for '${packageManager}' lockfile found.`);
+            console.log(`[INTELLIGENCE] Swapped 'npm' to '${packageManager}'`);
+        }
+
+        // Pre-build health check
+        if (command.includes("build") || command.includes("tsc")) {
+            const vitePath = path.join(finalCwd, "node_modules", "vite");
+            const hasVite = fs.existsSync(vitePath);
+            console.log(`[HEALTH CHECK] Vite module exists: ${hasVite} at ${vitePath}`);
         }
 
         // Pre-check for manifest
@@ -71,9 +78,12 @@ export class CommandService {
                 throw new Error(`Directory does not exist: ${finalCwd}`);
             }
 
+            const isInstall = command === "npm install" || command === "npm ci" || command.endsWith(" install");
+            const nodeEnv = isInstall || command.includes("build") || command.includes("dev") ? "development" : (process.env.NODE_ENV || "development");
+
             const { stdout, stderr } = await execAsync(finalCommand, {
                 cwd: finalCwd,
-                env: { ...process.env, CI: "true" },
+                env: { ...process.env, CI: "true", NODE_ENV: nodeEnv },
             });
 
             return {
@@ -84,9 +94,9 @@ export class CommandService {
         } catch (error: any) {
             console.error(`[EXECUTION FAILED] "${command}" in ${finalCwd}`);
 
-            const lastOutput = (error.stdout || "").split('\n').slice(-10).join('\n') +
+            const lastOutput = (error.stdout || "").split('\n').slice(-20).join('\n') +
                 "\n" +
-                (error.stderr || "").split('\n').slice(-10).join('\n');
+                (error.stderr || "").split('\n').slice(-20).join('\n');
 
             let dirList = "n/a";
             try { dirList = fs.readdirSync(finalCwd).slice(0, 50).join(", "); } catch (e) { }
