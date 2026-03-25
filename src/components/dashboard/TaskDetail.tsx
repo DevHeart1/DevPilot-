@@ -15,6 +15,7 @@ import {
 import { PatchDiff } from "./PatchDiff";
 import { runUiInspectionWorkflow } from "../../lib/workflows/uiInspection.workflow";
 import { runVerificationPreparationWorkflow } from "../../lib/workflows/verificationPreparation.workflow";
+import { runFollowUpWorkflow } from "../../lib/workflows";
 import {
     Task,
 } from "../../types";
@@ -225,6 +226,11 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
             content,
             kind: "info",
             timestamp: Date.now(),
+        });
+
+        // Trigger the follow-up conversational workflow
+        void runFollowUpWorkflow(taskId).catch(error => {
+            console.error("Failed to run follow-up workflow:", error);
         });
     };
 

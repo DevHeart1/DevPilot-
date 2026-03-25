@@ -4,6 +4,7 @@ import {
   NormalizedFixRecommendation,
   PatchFile,
   PatchProposal,
+  AgentMessage,
 } from "../../types";
 import { config } from "../config/env";
 import { createUnifiedDiff } from "../utils/diff";
@@ -226,5 +227,131 @@ Respond with JSON:
     };
 
     return { proposal, files };
+  },
+
+  async handleFollowUp(input: {
+    taskId: string;
+    taskTitle: string;
+    messages: AgentMessage[];
+    currentProposal?: PatchProposal;
+    currentFiles?: PatchFile[];
+    repoFiles?: GitLabRepositoryFile[];
+  }): Promise<{ reply: string; proposal?: PatchProposal; files?: PatchFile[] }> {
+    const ai = getAiClient();
+
+    const prompt = `
+You are a senior code-fix agent currently engaged in a conversation with a human developer.
+The developer is providing follow-up instructions or feedback on a task.
+Based on the conversation history and the current state of the proposed fix, you should:
+1. Provide a textual reply acknowledging their feedback and explaining your updated approach.
+2. If their feedback implies the code needs to be updated or a new file needs to be patched, generate an updated patch proposal. If no code changes are needed and you are just answering a question, leave the "files" array empty.
+
+Task Title: ${input.taskTitle}
+
+Conversation History:
+${input.messages
+        .map((m) => `[${new Date(m.timestamp).toISOString()}] ${m.sender}: ${m.content}`)
+        .join("\n")}
+
+Current Patch Proposal (if any):
+${input.currentProposal
+        ? `Summary: ${input.currentProposal.summary}\nExplanation: ${input.currentProposal.explanation}`
+        : "None"}
+
+Repository Files (context):
+${input.repoFiles
+        ?.map((file) => `FILE: ${file.filePath}\n${file.content}`)
+        .join("\n\n====\n\n") || "None"}
+
+Respond with valid JSON only:
+{
+  "reply": "string",
+  "hasCodeChanges": boolean,
+  "title": "string (required if hasCodeChanges=true)",
+  "summary": "string (required if hasCodeChanges=true)",
+  "recommendedStrategy": "string (required if hasCodeChanges=true)",
+  "explanation": "string (required if hasCodeChanges=true)",
+  "files": [
+    {
+      "filePath": "path/to/file.tsx",
+      "changeType": "update" | "create" | "delete",
+      "explanation": "string",
+      "nextContent": "full file content after the change"
+    }
+  ]
+}
+`.trim();
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.1-pro-preview",
+      contents: [prompt],
+      config: {
+        thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH },
+        tools: [
+          { urlContext: {} },
+          { codeExecution: {} },
+          { googleSearch: {} },
+        ],
+      },
+    });
+
+    if (!response.text) {
+      throw new Error("Gemini returned an empty conversational response.");
+    }
+
+    const parsed = parseJson<{
+      reply: string;
+      hasCodeChanges: boolean;
+      title?: string;
+      summary?: string;
+      recommendedStrategy?: string;
+      explanation?: string;
+      files?: Array<{
+        filePath: string;
+        changeType: "update" | "create" | "delete";
+        explanation: string;
+        nextContent: string;
+      }>;
+    }>(response.text);
+
+    let newProposal: PatchProposal | undefined;
+    let newFiles: PatchFile[] | undefined;
+
+    if (parsed.hasCodeChanges && parsed.files && parsed.files.length > 0) {
+      const proposalId = crypto.randomUUID();
+      newFiles = parsed.files.map((file) => {
+        const repoFile = input.repoFiles?.find((f) => f.filePath === file.filePath);
+        const currentContent = repoFile?.content || "";
+        return {
+          id: crypto.randomUUID(),
+          proposalId,
+          taskId: input.taskId,
+          filePath: file.filePath,
+          changeType: file.changeType,
+          patch: createUnifiedDiff(file.filePath, currentContent, file.nextContent),
+          currentContent,
+          nextContent: file.nextContent,
+          explanation: file.explanation,
+          createdAt: Date.now(),
+        } satisfies PatchFile;
+      });
+
+      newProposal = {
+        id: proposalId,
+        taskId: input.taskId,
+        source: "gemini_code_agent",
+        status: "ready_for_review",
+        title: parsed.title || "Refined Patch Proposal",
+        summary: parsed.summary || "",
+        suspectedFiles: newFiles.map((f) => f.filePath),
+        recommendedStrategy: parsed.recommendedStrategy || "",
+        explanation: parsed.explanation || "",
+        confidence: 0.9,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+    }
+
+    return { reply: parsed.reply, proposal: newProposal, files: newFiles };
   },
 };
