@@ -20,7 +20,7 @@ export interface SandboxSession {
 const DEFAULT_VIEWPORT: SandboxViewport = { width: 1440, height: 950 };
 
 export class SessionService {
-  private activeSession: SandboxSession | null = null;
+  private activeSessions: Map<string, SandboxSession> = new Map();
 
   constructor() {
     if (!process.env.DISPLAY) {
@@ -53,16 +53,16 @@ export class SessionService {
     targetUrl: string,
     viewport: SandboxViewport = DEFAULT_VIEWPORT,
   ): Promise<SandboxSession> {
-    if (this.activeSession && this.activeSession.status !== "closed") {
-      console.warn(`Forcefully closing existing session ${this.activeSession.id} to start a new one.`);
+    if (this.activeSessions.has(id)) {
+      console.warn(`Forcefully closing existing session ${id} to start a new one.`);
       try {
-        await this.closeSession(this.activeSession.id);
+        await this.closeSession(id);
       } catch (e) {
         console.error("Error closing previous session:", e);
       }
     }
 
-    this.activeSession = {
+    const session: SandboxSession = {
       id,
       status: "initializing",
       createdAt: Date.now(),
@@ -70,6 +70,8 @@ export class SessionService {
       viewportInfo: viewport,
       consoleLogs: [],
     };
+
+    this.activeSessions.set(id, session);
 
     try {
       const browser = await chromium.launch({
@@ -99,29 +101,42 @@ export class SessionService {
       });
 
       const page = await context.newPage();
-      page.on("console", (message) => this.trackConsoleMessage(this.activeSession!, message));
+      page.on("console", (message) => {
+        const s = this.activeSessions.get(id);
+        if (s) this.trackConsoleMessage(s, message);
+      });
       page.on("pageerror", (error) => {
-        this.activeSession?.consoleLogs.push(`[PAGEERROR] ${error.message}`);
+        const s = this.activeSessions.get(id);
+        if (s) {
+          s.consoleLogs.push(`[PAGEERROR] ${error.message}`);
+        }
       });
       page.on("requestfailed", (request) => {
-        this.activeSession?.consoleLogs.push(
-          `[REQUESTFAILED] ${request.method()} ${request.url()} :: ${request.failure()?.errorText ?? "unknown"}`,
-        );
+        const s = this.activeSessions.get(id);
+        if (s) {
+          s.consoleLogs.push(
+            `[REQUESTFAILED] ${request.method()} ${request.url()} :: ${request.failure()?.errorText ?? "unknown"}`,
+          );
+        }
       });
 
       await page.goto(targetUrl, { waitUntil: "networkidle" });
 
-      this.activeSession.browser = browser;
-      this.activeSession.context = context;
-      this.activeSession.page = page;
-      this.activeSession.status = "active";
-      this.activeSession.currentUrl = page.url();
+      const session = this.activeSessions.get(id);
+      if (session) {
+        session.browser = browser;
+        session.context = context;
+        session.page = page;
+        session.status = "active";
+        session.currentUrl = page.url();
+      }
 
-      return this.activeSession;
+      return session!;
     } catch (error) {
-      if (this.activeSession) {
-        this.activeSession.status = "failed";
-        this.activeSession.consoleLogs.push(
+      const session = this.activeSessions.get(id);
+      if (session) {
+        session.status = "failed";
+        session.consoleLogs.push(
           `[SESSIONERROR] ${error instanceof Error ? error.message : String(error)}`,
         );
       }
@@ -130,13 +145,12 @@ export class SessionService {
   }
 
   getSession(id?: string): SandboxSession | null {
-    if (!this.activeSession) {
+    if (!id) {
+      // If no ID is provided, but there's a session, return the first one (for legacy fallback)
+      if (this.activeSessions.size === 1) return Array.from(this.activeSessions.values())[0];
       return null;
     }
-    if (id && this.activeSession.id !== id) {
-      return null;
-    }
-    return this.activeSession;
+    return this.activeSessions.get(id) || null;
   }
 
   getSerializableSession(id?: string) {
@@ -165,13 +179,11 @@ export class SessionService {
         await session.browser.close();
       }
     } finally {
-      if (this.activeSession) {
-        this.activeSession.status = "closed";
-        this.activeSession.browser = undefined;
-        this.activeSession.context = undefined;
-        this.activeSession.page = undefined;
-        this.activeSession = null;
-      }
+      session.status = "closed";
+      session.browser = undefined;
+      session.context = undefined;
+      session.page = undefined;
+      this.activeSessions.delete(id);
     }
   }
 }
