@@ -150,25 +150,14 @@ export const runUiInspectionWorkflow = async (taskId: string) => {
 
 
     // 3. Poll for readiness
-    let isReady = false;
-    let attempts = 0;
-    const maxAttempts = 30;
+    const readiness = await sandboxAdapter.waitForUrl(targetUrl, 60000, 2000);
 
-    while (!isReady && attempts < maxAttempts) {
-      try {
-        const response = await fetch(targetUrl, { mode: 'no-cors' });
-        if (response.type === 'opaque' || response.ok) {
-          isReady = true;
-        }
-      } catch {
-        attempts++;
-        await new Promise(resolve => setTimeout(resolve, 2000));
-      }
-    }
-
-    if (!isReady) {
+    if (!readiness.ready) {
       await sandboxAdapter.stopBackgroundCommand(serverId);
-      throw new Error(`Server at ${targetUrl} did not become ready after 60s.`);
+      throw new Error(
+        `Server at ${targetUrl} did not become ready after 60s. ` +
+        `Last error: ${readiness.lastError || "unknown"}`
+      );
     }
 
     await runService.updateRunStepStatus(

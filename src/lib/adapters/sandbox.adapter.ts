@@ -11,6 +11,14 @@ export interface ExecutionResult {
   exitCode: number;
 }
 
+export interface SandboxUrlReadinessResponse {
+  ready: boolean;
+  attempts: number;
+  lastError: string | null;
+  statusCode: number | null;
+  targetUrl: string;
+}
+
 export interface SandboxVerificationCheck {
   name: string;
   status: "pass" | "warn" | "fail";
@@ -181,6 +189,27 @@ export const sandboxAdapter = {
     }
   },
 
+  async waitForUrl(
+    targetUrl: string,
+    timeoutMs: number = 60000,
+    intervalMs: number = 2000,
+  ): Promise<SandboxUrlReadinessResponse> {
+    await sandboxAdapter.assertHealthy();
+
+    const response = await fetch(`${sandboxAdapter.getSandboxBaseUrl()}/api/execute/wait-for-url`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ targetUrl, timeoutMs, intervalMs }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(`Failed to wait for target URL: ${error.error || response.statusText}`);
+    }
+
+    return (await response.json()) as SandboxUrlReadinessResponse;
+  },
+
   async stopBackgroundCommand(id: string): Promise<void> {
     const isHealthy = await sandboxAdapter.checkHealth();
     if (!isHealthy) return;
@@ -214,5 +243,4 @@ export const sandboxAdapter = {
     return (await response.json()) as SandboxSetupResponse;
   },
 };
-
 

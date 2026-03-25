@@ -186,6 +186,20 @@ apiRouter.post("/execute/start", async (req: Request, res: Response) => {
   }
 });
 
+apiRouter.post("/execute/wait-for-url", async (req: Request, res: Response) => {
+  const { targetUrl, timeoutMs, intervalMs } = req.body;
+  if (!targetUrl) {
+    return res.status(400).json({ error: "targetUrl is required" });
+  }
+
+  try {
+    const result = await commandService.waitForUrl(targetUrl, timeoutMs, intervalMs);
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message || "Readiness check failed" });
+  }
+});
+
 apiRouter.post("/execute/stop", async (req: Request, res: Response) => {
   const { id } = req.body;
   if (!id) {

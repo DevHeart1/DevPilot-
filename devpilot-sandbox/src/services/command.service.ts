@@ -31,6 +31,14 @@ export interface ExecutionResult {
     exitCode: number;
 }
 
+export interface UrlReadinessResult {
+    ready: boolean;
+    attempts: number;
+    lastError: string | null;
+    statusCode: number | null;
+    targetUrl: string;
+}
+
 export class CommandService {
     private activeProcesses: Map<string, ChildProcess> = new Map();
 
@@ -113,6 +121,56 @@ export class CommandService {
         child.stderr?.on("data", (data) => console.error(`[${id}] ${data}`));
 
         this.activeProcesses.set(id, child);
+    }
+
+    async waitForUrl(
+        targetUrl: string,
+        timeoutMs: number = 60_000,
+        intervalMs: number = 2_000,
+    ): Promise<UrlReadinessResult> {
+        const deadline = Date.now() + timeoutMs;
+        let attempts = 0;
+        let lastError: string | null = null;
+        let statusCode: number | null = null;
+
+        console.log(`[RUNTIME] Waiting for ${targetUrl} to become ready from inside the sandbox.`);
+
+        while (Date.now() < deadline) {
+            attempts += 1;
+
+            try {
+                const response = await fetch(targetUrl, {
+                    signal: AbortSignal.timeout(Math.min(intervalMs, 5_000)),
+                });
+
+                statusCode = response.status;
+                if (response.ok || [301, 302, 307, 308].includes(response.status)) {
+                    console.log(`[RUNTIME] ${targetUrl} is ready after ${attempts} attempt(s).`);
+                    return {
+                        ready: true,
+                        attempts,
+                        lastError: null,
+                        statusCode,
+                        targetUrl,
+                    };
+                }
+
+                lastError = `Received HTTP ${response.status} from ${targetUrl}`;
+            } catch (error) {
+                lastError = this.getErrorMessage(error);
+            }
+
+            await new Promise((resolve) => setTimeout(resolve, intervalMs));
+        }
+
+        console.warn(`[RUNTIME] ${targetUrl} did not become ready within ${timeoutMs}ms.`);
+        return {
+            ready: false,
+            attempts,
+            lastError,
+            statusCode,
+            targetUrl,
+        };
     }
 
     async stopBackground(id: string): Promise<void> {
