@@ -3,7 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
+import { Routes, Route, useNavigate, useParams, Navigate } from "react-router-dom";
 import { Header } from "./components/layout/Header";
 import { Footer } from "./components/layout/Footer";
 import { DashboardHeroComposer } from "./components/DashboardHeroComposer";
@@ -28,34 +29,24 @@ type Page =
   | "terms"
   | "support";
 
+const TaskDetailRoute = ({ projects, branches }: { projects: string[]; branches: string[] }) => {
+  const { taskId } = useParams<{ taskId: string }>();
+  const navigate = useNavigate();
+  if (!taskId) return <Navigate to="/" replace />;
+
+  return (
+    <TaskDetail
+      taskId={taskId}
+      onBack={() => navigate("/")}
+      projects={projects}
+      branches={branches}
+    />
+  );
+};
+
 export default function App() {
-  const getInitialPage = (): Page => {
-    const hash = window.location.hash.replace("#", "");
-    const validPages: Page[] = ["dashboard", "task_detail", "documentation", "changelog", "settings", "privacy", "terms", "support"];
-    return validPages.includes(hash as Page) ? (hash as Page) : "dashboard";
-  };
-
-  const getInitialTask = (): string | null => {
-    const searchParams = new URLSearchParams(window.location.search);
-    return searchParams.get("taskId");
-  };
-
-  const [currentPage, setCurrentPage] = useState<Page>(getInitialPage());
-  const [selectedTask, setSelectedTask] = useState<string | null>(getInitialTask());
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<Task["category"]>("tasks");
-
-  useEffect(() => {
-    const handleHashChange = () => {
-      const hash = window.location.hash.replace("#", "");
-      if (hash) {
-        setCurrentPage(hash as Page);
-      } else {
-        setCurrentPage("dashboard");
-      }
-    };
-    window.addEventListener("hashchange", handleHashChange);
-    return () => window.removeEventListener("hashchange", handleHashChange);
-  }, []);
 
   const {
     integrationState,
@@ -69,112 +60,65 @@ export default function App() {
     handleProjectChange,
   } = useTaskHub();
 
-  const navigate = (page: Page, taskId?: string) => {
-    setCurrentPage(page);
-    window.location.hash = page;
-
-    if (taskId) {
-      setSelectedTask(taskId);
-      const newUrl = new URL(window.location.href);
-      newUrl.searchParams.set("taskId", taskId);
-      window.history.replaceState({}, "", newUrl.toString());
-    } else {
-      const newUrl = new URL(window.location.href);
-      if (newUrl.searchParams.has("taskId")) {
-        newUrl.searchParams.delete("taskId");
-        window.history.replaceState({}, "", newUrl.toString());
-      }
-    }
-  };
-
   const handleCreateTask = async (prompt: string) => {
     const taskId = await createTask(prompt);
-    if (taskId) navigate("task_detail", taskId);
+    if (taskId) navigate(`/task/${taskId}`);
   };
 
   const projectPath = integrationState.project?.pathWithNamespace || "";
   const branchNames = integrationState.branches.map((branch) => branch.name);
 
-  // Router Implementation
-  const renderPage = () => {
-    if (currentPage === "task_detail" && selectedTask) {
-      return (
-        <TaskDetail
-          taskId={selectedTask}
-          onBack={() => navigate("dashboard")}
-          projects={[projectPath]}
-          branches={branchNames}
-        />
-      );
-    }
+  return (
+    <Routes>
+      <Route
+        path="/"
+        element={
+          <div className="min-h-screen bg-background-dark font-display text-slate-100 selection:bg-primary/30">
+            <Header />
+            <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+              <DashboardHeroComposer
+                projectLabel={integrationState.project?.name || "Select Project"}
+                projectPath={projectPath}
+                branches={branchNames}
+                selectedBranch={selectedBranch}
+                onBranchChange={setSelectedBranch}
+                onSubmit={handleCreateTask}
+                isReady={integrationState.ready}
+                isSubmitting={isCreatingTask}
+                availableProjects={integrationState.availableProjects}
+                onProjectChange={handleProjectChange}
+              />
 
-    if (currentPage === "documentation") return <Documentation onBack={() => navigate("dashboard")} />;
-    if (currentPage === "changelog") return <Changelog onBack={() => navigate("dashboard")} />;
-    if (currentPage === "settings") {
-      return (
-        <Settings
-          onBack={() => navigate("dashboard")}
-          userConfig={userConfig}
-          onUpdateConfig={setUserConfig}
-        />
-      );
-    }
+              <section className="mt-16">
+                <Tabs activeTab={activeTab} onTabChange={setActiveTab} />
+                <TaskList
+                  onSelectTask={(id) => navigate(`/task/${id}`)}
+                  activeTab={activeTab}
+                />
+              </section>
 
-    if (currentPage === "privacy") {
-      return (
-        <Legal
-          title="Privacy Policy"
-          lastUpdated="March 11, 2026"
-          content={PrivacyPolicyContent}
-          onBack={() => navigate("dashboard")}
-        />
-      );
-    }
-
-    if (currentPage === "terms") {
-      return (
-        <Legal
-          title="Terms of Service"
-          lastUpdated="March 11, 2026"
-          content={TermsOfServiceContent}
-          onBack={() => navigate("dashboard")}
-        />
-      );
-    }
-
-    if (currentPage === "support") return <Support onBack={() => navigate("dashboard")} />;
-
-    // Default: Dashboard
-    return (
-      <div className="min-h-screen bg-background-dark font-display text-slate-100 selection:bg-primary/30">
-        <Header navigate={navigate} />
-        <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-          <DashboardHeroComposer
-            projectLabel={integrationState.project?.name || "Select Project"}
-            projectPath={projectPath}
-            branches={branchNames}
-            selectedBranch={selectedBranch}
-            onBranchChange={setSelectedBranch}
-            onSubmit={handleCreateTask}
-            isReady={integrationState.ready}
-            isSubmitting={isCreatingTask}
-            availableProjects={integrationState.availableProjects}
-            onProjectChange={handleProjectChange}
-          />
-
-          <section className="mt-16">
-            <Tabs activeTab={activeTab} onTabChange={setActiveTab} />
-            <TaskList
-              onSelectTask={(id) => navigate("task_detail", id)}
-              activeTab={activeTab}
-            />
-          </section>
-
-          <Footer navigate={navigate} />
-        </main>
-      </div>
-    );
-  };
-
-  return renderPage();
+              <Footer />
+            </main>
+          </div>
+        }
+      />
+      <Route path="/task/:taskId" element={<TaskDetailRoute projects={[projectPath]} branches={branchNames} />} />
+      <Route path="/documentation" element={<Documentation onBack={() => navigate("/")} />} />
+      <Route path="/changelog" element={<Changelog onBack={() => navigate("/")} />} />
+      <Route
+        path="/settings"
+        element={<Settings onBack={() => navigate("/")} userConfig={userConfig} onUpdateConfig={setUserConfig} />}
+      />
+      <Route
+        path="/privacy"
+        element={<Legal title="Privacy Policy" lastUpdated="March 11, 2026" content={PrivacyPolicyContent} onBack={() => navigate("/")} />}
+      />
+      <Route
+        path="/terms"
+        element={<Legal title="Terms of Service" lastUpdated="March 11, 2026" content={TermsOfServiceContent} onBack={() => navigate("/")} />}
+      />
+      <Route path="/support" element={<Support onBack={() => navigate("/")} />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
 }
